@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:moto_key/src/rust/frb_generated.dart';
 
 import 'home_page.dart';
+import 'me_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,10 +53,7 @@ class MotoKey extends StatelessWidget {
           return const HomePage();
         }
 
-        return const CupertinoPageScaffold(
-          navigationBar: CupertinoNavigationBar(middle: Text('我的')),
-          child: Center(child: Text('我的内容')),
-        );
+        return const MePage();
       },
     );
   }
