@@ -98,10 +98,13 @@ class HomePage extends StatelessWidget {
                       const Spacer(),
 
                       // Temporarily using a car icon as a placeholder
-                      Image.asset(
-                        'assets/common/car.png',
-                        width: 150,
-                        fit: BoxFit.contain,
+                      Transform.translate(
+                        offset: const Offset(20, 0),
+                        child: Image.asset(
+                          'assets/common/car.png',
+                          width: 150,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ],
                   ),
