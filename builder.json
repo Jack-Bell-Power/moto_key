@@ -1,0 +1,19 @@
+{
+  "project": "moto_key",
+  "platform": "ios",
+  "github": {
+    "owner": "Jack-Bell-Power",
+    "repo": "moto_key"
+  },
+  "provider": "github",
+  "codemagic": {},
+  "bitrise": {},
+  "ios": {},
+  "flutter": {
+    "version": "3.47.8",
+    "watch": {}
+  },
+  "reactNative": {},
+  "kmp": {},
+  "mobai": {}
+}
