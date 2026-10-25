@@ -215,6 +215,39 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // More settings and instructions
+            Container(
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  _buildMoreItem(
+                    icon: 'assets/common/setImg.png',
+                    title: '更多设置',
+                    onTap: () {
+                      // TODO: 跳转到更多设置页面
+                    },
+                  ),
+                  Container(
+                    height: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    color: const Color(0xFFF0F0F0),
+                  ),
+                  _buildMoreItem(
+                    icon: 'assets/common/qusetion.png',
+                    title: '使用说明',
+                    onTap: () {
+                      // TODO: 跳转到使用说明页面
+                    },
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -255,6 +288,34 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMoreItem({
+    required String icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      onPressed: onTap,
+      child: Row(
+        children: [
+          Image.asset(icon, width: 24, height: 24, fit: BoxFit.contain),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+            ),
+          ),
+          const Icon(
+            CupertinoIcons.chevron_right,
+            size: 16,
+            color: Color(0xFF999999),
+          ),
+        ],
       ),
     );
   }
