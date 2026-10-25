@@ -15,7 +15,7 @@ class HomePage extends StatelessWidget {
           children: [
             // Top device info card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -99,7 +99,7 @@ class HomePage extends StatelessWidget {
 
                       // Temporarily using a car icon as a placeholder
                       Transform.translate(
-                        offset: const Offset(20, -15),
+                        offset: const Offset(20, -20),
                         child: Image.asset(
                           'assets/common/car.png',
                           width: 150,
