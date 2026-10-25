@@ -7,15 +7,13 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('首页'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('首页')),
       child: SafeArea(
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 顶部设备信息卡片
+            // Top device info card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -25,7 +23,7 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 设备型号和搜索按钮
+                  // Device model and search button
                   Row(
                     children: [
                       const Expanded(
@@ -41,7 +39,7 @@ class HomePage extends StatelessWidget {
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () {
-                          // 后续接入搜索设备功能
+                          // Later add search device feature
                         },
                         child: const Text('搜索设备'),
                       ),
@@ -50,7 +48,7 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 8),
 
-                  // 蓝牙连接状态
+                  // Bluetooth connection status
                   const Row(
                     children: [
                       Icon(
@@ -71,7 +69,7 @@ class HomePage extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // 电压和车辆图片
+                  // Voltage and vehicle pictures
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -99,11 +97,11 @@ class HomePage extends StatelessWidget {
 
                       const Spacer(),
 
-                      // 暂时使用车辆图标占位
-                      const Icon(
-                        CupertinoIcons.car_detailed,
-                        size: 80,
-                        color: CupertinoColors.systemGrey2,
+                      // Temporarily using a car icon as a placeholder
+                      Image.asset(
+                        'assets/common/car.png',
+                        width: 150,
+                        fit: BoxFit.contain,
                       ),
                     ],
                   ),
