@@ -99,7 +99,7 @@ class HomePage extends StatelessWidget {
 
                       // Temporarily using a car icon as a placeholder
                       Transform.translate(
-                        offset: const Offset(20, 0),
+                        offset: const Offset(20, -15),
                         child: Image.asset(
                           'assets/common/car.png',
                           width: 150,
