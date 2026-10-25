@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:moto_key/src/rust/frb_generated.dart';
 
+import 'home_page.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init();
@@ -16,7 +18,7 @@ class MotoKey extends StatelessWidget {
       theme: CupertinoThemeData(brightness: Brightness.light),
       home: CupertinoTabScaffold(
         tabBar: CupertinoTabBar(
-					activeColor: CupertinoColors.black,
+          activeColor: CupertinoColors.black,
           items: [
             BottomNavigationBarItem(
               icon: Image.asset('assets/tab/index.png', width: 24, height: 24),
@@ -45,12 +47,14 @@ class MotoKey extends StatelessWidget {
 
   static Widget _buildTab(BuildContext context, int index) {
     return CupertinoTabView(
-      builder: (context) {
-        return CupertinoPageScaffold(
-          navigationBar: CupertinoNavigationBar(
-            middle: Text(index == 0 ? '首页' : '我的'),
-          ),
-          child: Center(child: Text(index == 0 ? '首页内容' : '我的内容')),
+      builder: (_) {
+        if (index == 0) {
+          return const HomePage();
+        }
+
+        return const CupertinoPageScaffold(
+          navigationBar: CupertinoNavigationBar(middle: Text('我的')),
+          child: Center(child: Text('我的内容')),
         );
       },
     );
