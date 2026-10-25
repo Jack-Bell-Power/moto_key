@@ -9,7 +9,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   // The highlighted state of the four function buttons
-  bool isSitBucket = false;
   bool isUnlock = false;
   bool isSetLock = false;
   bool isFindCar = false;
@@ -136,17 +135,6 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     children: [
                       _buildCommand(
-                        icon: 'assets/common/sitBucket.png',
-                        activeIcon: 'assets/common/activeSitBucket.png',
-                        title: '打开坐桶',
-                        active: isSitBucket,
-                        onTap: () {
-                          setState(() {
-                            isSitBucket = !isSitBucket;
-                          });
-                        },
-                      ),
-                      _buildCommand(
                         icon: 'assets/common/unlockImg.png',
                         activeIcon: 'assets/common/activeUnlockImg.png',
                         title: '解防',
@@ -243,23 +231,22 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
         onPressed: onTap,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               active ? activeIcon : icon,
-              width: 30,
-              height: 30,
+              width: 40,
+              height: 40,
               fit: BoxFit.contain,
             ),
             const SizedBox(height: 8),
             Text(
               title,
-              maxLines: 1,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 color: active
                     ? const Color(0xFF4F9EFF)
                     : const Color(0xFF333333),
