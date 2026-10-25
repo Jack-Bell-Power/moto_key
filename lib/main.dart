@@ -16,6 +16,7 @@ class MotoKey extends StatelessWidget {
       theme: CupertinoThemeData(brightness: Brightness.light),
       home: CupertinoTabScaffold(
         tabBar: CupertinoTabBar(
+					activeColor: CupertinoColors.black,
           items: [
             BottomNavigationBarItem(
               icon: Image.asset('assets/tab/index.png', width: 24, height: 24),
