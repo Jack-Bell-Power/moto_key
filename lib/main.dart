@@ -13,18 +13,26 @@ class MotoKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoApp(
-			theme: CupertinoThemeData(
-        brightness: Brightness.light,
-      ),
+      theme: CupertinoThemeData(brightness: Brightness.light),
       home: CupertinoTabScaffold(
         tabBar: CupertinoTabBar(
           items: [
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.house_fill),
+              icon: Image.asset('assets/tab/index.png', width: 24, height: 24),
+              activeIcon: Image.asset(
+                'assets/tab/selectIndex.png',
+                width: 24,
+                height: 24,
+              ),
               label: '首页',
             ),
             BottomNavigationBarItem(
-              icon: Icon(CupertinoIcons.person_fill),
+              icon: Image.asset('assets/tab/me.png', width: 24, height: 24),
+              activeIcon: Image.asset(
+                'assets/tab/selectMe.png',
+                width: 24,
+                height: 24,
+              ),
               label: '我的',
             ),
           ],
@@ -34,16 +42,14 @@ class MotoKey extends StatelessWidget {
     );
   }
 
-	static Widget _buildTab(BuildContext context, int index) {
+  static Widget _buildTab(BuildContext context, int index) {
     return CupertinoTabView(
       builder: (context) {
         return CupertinoPageScaffold(
           navigationBar: CupertinoNavigationBar(
             middle: Text(index == 0 ? '首页' : '我的'),
           ),
-          child: Center(
-            child: Text(index == 0 ? '首页内容' : '我的内容'),
-          ),
+          child: Center(child: Text(index == 0 ? '首页内容' : '我的内容')),
         );
       },
     );
