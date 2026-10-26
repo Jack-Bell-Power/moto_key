@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import 'modify_password_page.dart';
+
 class MoreSettingsPage extends StatefulWidget {
   const MoreSettingsPage({super.key});
 
@@ -56,12 +58,9 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
   }
 
   void _openModifyPassword() {
-    // TODO: Replace it with the actual change password page.
-    // For example：Navigator.of(context).push(
-    //   CupertinoPageRoute(
-    //     builder: (_) => const ModifyPasswordPage(),
-    //   ),
-    // );
+    Navigator.of(context, rootNavigator: true).push(
+      CupertinoPageRoute<void>(builder: (_) => const ModifyPasswordPage()),
+    );
   }
 
   @override
