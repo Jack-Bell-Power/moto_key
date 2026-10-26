@@ -9,8 +9,9 @@ class ModifyPasswordPage extends StatefulWidget {
 }
 
 class _ModifyPasswordPageState extends State<ModifyPasswordPage> {
-  final TextEditingController _passwordController =
-      TextEditingController();
+  bool _showPassword = false;
+
+  final TextEditingController _passwordController = TextEditingController();
 
   void _savePassword() {
     final password = _passwordController.text;
@@ -61,18 +62,13 @@ class _ModifyPasswordPageState extends State<ModifyPasswordPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('修改密码'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('修改密码')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -82,23 +78,40 @@ class _ModifyPasswordPageState extends State<ModifyPasswordPage> {
                 placeholder: '请输入6位纯数字密码',
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                obscureText: true,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
+                obscureText: !_showPassword,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: const BoxDecoration(),
                 clearButtonMode: OverlayVisibilityMode.editing,
-                suffix: const SizedBox(width: 4),
+                suffix: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  onPressed: () {
+                    setState(() {
+                      _showPassword = !_showPassword;
+                    });
+                  },
+                  child: Icon(
+                    _showPassword
+                        ? CupertinoIcons.eye_slash
+                        : CupertinoIcons.eye,
+                    size: 20,
+                    color: const Color(0xFF999999),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 24),
             SizedBox(
+              width: double.infinity,
               height: 48,
               child: CupertinoButton.filled(
-                borderRadius: BorderRadius.circular(12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 onPressed: _savePassword,
-                child: const Text('保存修改'),
+                child: const Text(
+                  '保存修改',
+                  style: TextStyle(fontSize: 16, color: CupertinoColors.white),
+                ),
               ),
             ),
           ],
