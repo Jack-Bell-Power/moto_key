@@ -8,7 +8,7 @@ class MoreSettingsPage extends StatefulWidget {
 }
 
 class _MoreSettingsPageState extends State<MoreSettingsPage> {
-  // 以下选项暂时使用示例数据，后续可替换为设备实际配置。
+  // The following options are currently using sample data and can be replaced with the actual device settings later.
   final List<String> levelArr = ['低', '中', '高'];
   final List<String> nearUnlockArr = ['关闭', '靠近解锁', '离开上锁'];
   final List<String> feelRangeArr = ['近', '中', '远'];
@@ -56,8 +56,8 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
   }
 
   void _openModifyPassword() {
-    // TODO: 替换成实际的修改密码页面。
-    // 例如：Navigator.of(context).push(
+    // TODO: Replace it with the actual change password page.
+    // For example：Navigator.of(context).push(
     //   CupertinoPageRoute(
     //     builder: (_) => const ModifyPasswordPage(),
     //   ),
@@ -68,14 +68,12 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('更多设置'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('更多设置')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 常规设置
+            // General Settings
             _buildCard([
               _buildPickerItem(
                 title: '防盗灵敏度选择',
@@ -136,79 +134,34 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
 
             const SizedBox(height: 16),
 
-            // 电池类型与电压
+            // Battery Type and Voltage
             _buildCard([
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '电池类型',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 20,
-                      runSpacing: 12,
-                      children: List.generate(
-                        batteryList.length,
-                        (index) => GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            setState(() => batteryIndex = index);
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                batteryIndex == index
-                                    ? CupertinoIcons
-                                        .largecircle_fill_circle
-                                    : CupertinoIcons.circle,
-                                size: 20,
-                                color: batteryIndex == index
-                                    ? const Color(0xFF0084FF)
-                                    : const Color(0xFF999999),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                batteryList[index],
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Color(0xFF333333),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDivider(),
-                    _buildPickerItem(
-                      title: '电压',
-                      value: voltageList[voltageIndex],
-                      onTap: () => _selectOption(
-                        title: '电压',
-                        options: voltageList,
-                        onSelected: (index) => voltageIndex = index,
-                      ),
-                      last: true,
-                    ),
-                  ],
+              _buildPickerItem(
+                title: '电池类型',
+                value: batteryList[batteryIndex],
+                first: true,
+                onTap: () => _selectOption(
+                  title: '电池类型',
+                  options: batteryList,
+                  onSelected: (index) => batteryIndex = index,
+                ),
+              ),
+              _buildDivider(),
+              _buildPickerItem(
+                title: '电压',
+                value: voltageList[voltageIndex],
+                last: true,
+                onTap: () => _selectOption(
+                  title: '电压',
+                  options: voltageList,
+                  onSelected: (index) => voltageIndex = index,
                 ),
               ),
             ]),
 
             const SizedBox(height: 16),
 
-            const SizedBox(height: 16),
-
-            // 修改密码
+            // Change password
             _buildCard([
               _buildPickerItem(
                 title: '修改密码',
@@ -230,9 +183,7 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
         color: CupertinoColors.white,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -243,40 +194,32 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
     bool first = false,
     bool last = false,
   }) {
-    return CupertinoButton(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: first ? 16 : 12,
-        bottom: last ? 16 : 12,
-      ),
-      onPressed: onTap,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF333333),
+    return SizedBox(
+      height: 56,
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        onPressed: onTap,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
               ),
             ),
-          ),
-          if (value.isNotEmpty)
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF999999),
+            if (value.isNotEmpty)
+              Text(
+                value,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF999999)),
               ),
+            const SizedBox(width: 8),
+            const Icon(
+              CupertinoIcons.chevron_right,
+              size: 16,
+              color: Color(0xFF999999),
             ),
-          const SizedBox(width: 8),
-          const Icon(
-            CupertinoIcons.chevron_right,
-            size: 16,
-            color: Color(0xFF999999),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -286,28 +229,25 @@ class _MoreSettingsPageState extends State<MoreSettingsPage> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 10,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF333333),
+    return SizedBox(
+      height: 56,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
               ),
             ),
-          ),
-          CupertinoSwitch(
-            value: value,
-            activeTrackColor: const Color(0xFF0084FF),
-            onChanged: onChanged,
-          ),
-        ],
+            CupertinoSwitch(
+              value: value,
+              activeTrackColor: const Color(0xFF0084FF),
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

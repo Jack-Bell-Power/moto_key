@@ -13,7 +13,7 @@ class MePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(middle: Text('更多设置')),
+      navigationBar: const CupertinoNavigationBar(middle: Text('我的')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
