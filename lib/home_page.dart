@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'more_settings_page.dart';
+import 'usage_guide_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -248,7 +249,11 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/qusetion.png',
                     title: '使用说明',
                     onTap: () {
-                      // TODO: 跳转到使用说明页面
+                      Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const UsageGuidePage(),
+                        ),
+                      );
                     },
                   ),
                 ],
