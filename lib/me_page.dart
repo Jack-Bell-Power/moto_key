@@ -57,7 +57,7 @@ class MePage extends StatelessWidget {
                 value: '',
                 showArrow: true,
                 onTap: () {
-                  Navigator.of(context).push(
+                  Navigator.of(context, rootNavigator: true).push(
                     CupertinoPageRoute(
                       builder: (context) => const AdvancedSettingsPage(),
                     ),

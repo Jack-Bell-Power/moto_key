@@ -9,9 +9,9 @@ class MoreSettingsPage extends StatefulWidget {
 
 class _MoreSettingsPageState extends State<MoreSettingsPage> {
   // The following options are currently using sample data and can be replaced with the actual device settings later.
-  final List<String> levelArr = ['低', '中', '高'];
-  final List<String> nearUnlockArr = ['关闭', '靠近解锁', '离开上锁'];
-  final List<String> feelRangeArr = ['近', '中', '远'];
+  final List<String> levelArr = ["0", "1", "2", "3", "4", "5", "6", "7", "8"];
+  final List<String> nearUnlockArr = ['只解锁', '解锁并上电', '仅解锁，需要振动上电'];
+  final List<String> feelRangeArr = ["远", "中", "近"];
   final List<String> batteryList = ['铅酸电池', '锂电池'];
   final List<String> voltageList = ['48V', '60V', '72V'];
 

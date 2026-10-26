@@ -232,7 +232,7 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/setImg.png',
                     title: '更多设置',
                     onTap: () {
-                      Navigator.of(context).push(
+                      Navigator.of(context, rootNavigator: true).push(
                         CupertinoPageRoute(
                           builder: (_) => const MoreSettingsPage(),
                         ),
