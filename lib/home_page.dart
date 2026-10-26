@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import 'more_settings_page.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -230,7 +232,11 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/setImg.png',
                     title: '更多设置',
                     onTap: () {
-                      // TODO: 跳转到更多设置页面
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (_) => const MoreSettingsPage(),
+                        ),
+                      );
                     },
                   ),
                   Container(

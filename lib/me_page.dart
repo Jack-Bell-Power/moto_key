@@ -1,5 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
+import 'advanced_settings_page.dart';
+
 class MePage extends StatelessWidget {
   const MePage({super.key});
 
@@ -11,9 +13,7 @@ class MePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('更多设置'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('更多设置')),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -57,7 +57,11 @@ class MePage extends StatelessWidget {
                 value: '',
                 showArrow: true,
                 onTap: () {
-                  // TODO: 跳转到高级设置页面
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => const AdvancedSettingsPage(),
+                    ),
+                  );
                 },
               ),
             ),
@@ -75,36 +79,22 @@ class MePage extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 15,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       onPressed: onTap,
       child: Row(
         children: [
-          Image.asset(
-            icon,
-            width: 22,
-            height: 22,
-            fit: BoxFit.contain,
-          ),
+          Image.asset(icon, width: 22, height: 22, fit: BoxFit.contain),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF333333),
-              ),
+              style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
             ),
           ),
           if (value.isNotEmpty)
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF999999),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF999999)),
             ),
           if (showArrow) ...[
             const SizedBox(width: 8),
