@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import 'advanced_settings_page.dart';
 import 'about_page.dart';
+import 'donate_page.dart';
 
 class MePage extends StatelessWidget {
   const MePage({super.key});
@@ -78,7 +79,11 @@ class MePage extends StatelessWidget {
                 value: '',
                 showArrow: true,
                 onTap: () {
-                  // TODO: 打开捐赠页面
+                  Navigator.of(context, rootNavigator: true).push(
+                    CupertinoPageRoute<void>(
+                      builder: (_) => const DonatePage(),
+                    ),
+                  );
                 },
               ),
             ),
