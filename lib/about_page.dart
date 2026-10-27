@@ -108,18 +108,6 @@ class AboutPage extends StatelessWidget {
               width: 76,
               height: 76,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 76,
-                  height: 76,
-                  color: const Color(0xFFE5EEFF),
-                  child: const Icon(
-                    CupertinoIcons.person_fill,
-                    size: 42,
-                    color: _primaryColor,
-                  ),
-                );
-              },
             ),
           ),
           const SizedBox(width: 18),
