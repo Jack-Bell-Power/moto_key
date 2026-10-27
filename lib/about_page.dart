@@ -104,7 +104,7 @@ class AboutPage extends StatelessWidget {
         children: [
           ClipOval(
             child: Image.asset(
-              'assets/about/avatar.png',
+              'assets/about/avatar.jpg',
               width: 76,
               height: 76,
               fit: BoxFit.cover,
@@ -181,7 +181,7 @@ class AboutPage extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(15),
                 child: Image.asset(
-                  'assets/app_icon.png',
+                  'assets/about/app_icon.png',
                   width: 54,
                   height: 54,
                   fit: BoxFit.cover,
