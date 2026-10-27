@@ -47,64 +47,60 @@ class MePage extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Advanced Settings
             Container(
+              // Advanced Settings
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: _buildInfoItem(
-                icon: 'assets/common/myLocation.png',
-                title: '高级设置',
-                value: '',
-                showArrow: true,
-                onTap: () {
-                  Navigator.of(context, rootNavigator: true).push(
-                    CupertinoPageRoute(
-                      builder: (context) => const AdvancedSettingsPage(),
-                    ),
-                  );
-                },
-              ),
-            ),
+              child: Column(
+                children: [
+                  _buildInfoItem(
+                    icon: 'assets/common/myLocation.png',
+                    title: '高级设置',
+                    value: '',
+                    showArrow: true,
+                    onTap: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const AdvancedSettingsPage(),
+                        ),
+                      );
+                    },
+                  ),
 
-            Container(
-              decoration: BoxDecoration(
-                color: CupertinoColors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: _buildInfoItem(
-                icon: 'assets/common/donate.png',
-                title: '捐赠',
-                value: '',
-                showArrow: true,
-                onTap: () {
-                  Navigator.of(context, rootNavigator: true).push(
-                    CupertinoPageRoute<void>(
-                      builder: (_) => const DonatePage(),
-                    ),
-                  );
-                },
-              ),
-            ),
+                  _buildDivider(),
 
-            const SizedBox(height: 12),
+                  _buildInfoItem(
+                    icon: 'assets/common/donate.png',
+                    title: '捐赠',
+                    value: '',
+                    showArrow: true,
+                    onTap: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const DonatePage(),
+                        ),
+                      );
+                    },
+                  ),
 
-            Container(
-              decoration: BoxDecoration(
-                color: CupertinoColors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: _buildInfoItem(
-                icon: 'assets/common/about.png',
-                title: '关于',
-                value: '',
-                showArrow: true,
-                onTap: () {
-                  Navigator.of(context, rootNavigator: true).push(
-                    CupertinoPageRoute<void>(builder: (_) => const AboutPage()),
-                  );
-                },
+                  _buildDivider(),
+
+                  _buildInfoItem(
+                    icon: 'assets/common/about.png',
+                    title: '关于',
+                    value: '',
+                    showArrow: true,
+                    onTap: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute<void>(
+                          builder: (_) => const AboutPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ],
