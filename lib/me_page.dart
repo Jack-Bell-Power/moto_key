@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import 'advanced_settings_page.dart';
+import 'about_page.dart';
 
 class MePage extends StatelessWidget {
   const MePage({super.key});
@@ -61,6 +62,42 @@ class MePage extends StatelessWidget {
                     CupertinoPageRoute(
                       builder: (context) => const AdvancedSettingsPage(),
                     ),
+                  );
+                },
+              ),
+            ),
+
+            Container(
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: _buildInfoItem(
+                icon: 'assets/common/donate.png',
+                title: '捐赠',
+                value: '',
+                showArrow: true,
+                onTap: () {
+                  // TODO: 打开捐赠页面
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Container(
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: _buildInfoItem(
+                icon: 'assets/common/about.png',
+                title: '关于',
+                value: '',
+                showArrow: true,
+                onTap: () {
+                  Navigator.of(context, rootNavigator: true).push(
+                    CupertinoPageRoute<void>(builder: (_) => const AboutPage()),
                   );
                 },
               ),
