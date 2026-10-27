@@ -103,7 +103,7 @@ class DonatePage extends StatelessWidget {
             color: _wechatColor,
             backgroundColor: const Color(0xFFEAF8EF),
             icon: CupertinoIcons.chat_bubble_2_fill,
-            imagePath: 'assets/about/wechat_pay.png',
+            imagePath: 'assets/donate/wechat_pay.JPG',
           ),
 
           Container(height: 0.5, color: const Color(0xFFE5EAF1)),
@@ -115,7 +115,7 @@ class DonatePage extends StatelessWidget {
             color: _alipayColor,
             backgroundColor: const Color(0xFFEAF3FF),
             icon: CupertinoIcons.money_yen_circle_fill,
-            imagePath: 'assets/about/alipay.png',
+            imagePath: 'assets/donate/alipay.JPG',
           ),
         ],
       ),
