@@ -29,7 +29,7 @@ class DonatePage extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            _buildDonationCard(),
+            _buildDonationCard(context),
 
             const SizedBox(height: 20),
 
@@ -87,7 +87,7 @@ class DonatePage extends StatelessWidget {
   }
 
   // Donation Methods Card
-  Widget _buildDonationCard() {
+  Widget _buildDonationCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
       decoration: BoxDecoration(
@@ -97,21 +97,25 @@ class DonatePage extends StatelessWidget {
       child: Column(
         children: [
           _buildPaymentItem(
+            context: context, // 新增
             title: '微信支付',
             subtitle: '使用微信扫一扫，向我捐赠',
             color: _wechatColor,
             backgroundColor: const Color(0xFFEAF8EF),
             icon: CupertinoIcons.chat_bubble_2_fill,
+            imagePath: 'assets/about/wechat_pay.png',
           ),
 
           Container(height: 0.5, color: const Color(0xFFE5EAF1)),
 
           _buildPaymentItem(
+            context: context, // 新增
             title: '支付宝支付',
             subtitle: '使用支付宝扫一扫，向我捐赠',
             color: _alipayColor,
             backgroundColor: const Color(0xFFEAF3FF),
             icon: CupertinoIcons.money_yen_circle_fill,
+            imagePath: 'assets/about/alipay.png',
           ),
         ],
       ),
@@ -120,17 +124,18 @@ class DonatePage extends StatelessWidget {
 
   // Single payment method
   Widget _buildPaymentItem({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required Color color,
     required Color backgroundColor,
     required IconData icon,
+    required String imagePath,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
         children: [
-          // Payment method icons
           Container(
             width: 58,
             height: 58,
@@ -140,10 +145,7 @@ class DonatePage extends StatelessWidget {
             ),
             child: Icon(icon, size: 34, color: CupertinoColors.white),
           ),
-
           const SizedBox(width: 14),
-
-          // Payment Instructions
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,16 +158,12 @@ class DonatePage extends StatelessWidget {
                     color: _titleColor,
                   ),
                 ),
-
                 const SizedBox(height: 7),
-
                 Text(
                   subtitle,
                   style: const TextStyle(fontSize: 12, color: _subtitleColor),
                 ),
-
                 const SizedBox(height: 10),
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -187,23 +185,33 @@ class DonatePage extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(width: 8),
 
-          Container(
-            width: 84,
-            height: 84,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(14),
+          // Click to view full image
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            onPressed: () => _showPaymentImage(
+              context: context,
+              title: title,
+              imagePath: imagePath,
             ),
             child: Container(
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
-                color: CupertinoColors.white,
-                borderRadius: BorderRadius.circular(8),
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color.withValues(alpha: 0.18)),
               ),
-              child: Icon(CupertinoIcons.qrcode, size: 54, color: color),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.qrcode, size: 29, color: color),
+                  const SizedBox(height: 4),
+                  Text('查看收款码', style: TextStyle(fontSize: 10, color: color)),
+                ],
+              ),
             ),
           ),
         ],
@@ -302,6 +310,36 @@ class DonatePage extends StatelessWidget {
           style: TextStyle(fontSize: 14, color: _subtitleColor),
         ),
       ],
+    );
+  }
+
+  void _showPaymentImage({
+    required BuildContext context,
+    required String title,
+    required String imagePath,
+  }) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return CupertinoAlertDialog(
+          title: Text(title),
+          content: Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Image.asset(
+              imagePath,
+              width: 240,
+              height: 300,
+              fit: BoxFit.contain,
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('完成'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
