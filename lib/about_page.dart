@@ -1,4 +1,3 @@
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
@@ -14,9 +13,7 @@ class AboutPage extends StatelessWidget {
       'https://github.com/Jack-Bell-Power/moto_key';
 
   Future<void> _openGithub(BuildContext context) async {
-    await Clipboard.setData(
-      const ClipboardData(text: _githubUrl),
-    );
+    await Clipboard.setData(const ClipboardData(text: _githubUrl));
 
     if (!context.mounted) return;
 
@@ -33,12 +30,6 @@ class AboutPage extends StatelessWidget {
             ),
           ),
           actions: [
-            CupertinoDialogAction(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('知道了'),
-            ),
             CupertinoDialogAction(
               isDefaultAction: true,
               onPressed: () {
@@ -60,10 +51,7 @@ class AboutPage extends StatelessWidget {
         middle: Text('关于'),
         backgroundColor: _backgroundColor,
         border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFE3E8F0),
-            width: 0.5,
-          ),
+          bottom: BorderSide(color: Color(0xFFE3E8F0), width: 0.5),
         ),
       ),
       child: SafeArea(
@@ -82,33 +70,18 @@ class AboutPage extends StatelessWidget {
 
             // Bottom Note
             const Center(
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Built with Flutter',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _subtitleColor,
-                    ),
+                  Icon(
+                    CupertinoIcons.heart_fill,
+                    size: 12,
+                    color: _primaryColor,
                   ),
-                  SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        CupertinoIcons.heart_fill,
-                        size: 12,
-                        color: _primaryColor,
-                      ),
-                      SizedBox(width: 5),
-                      Text(
-                        'Open Source',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: _subtitleColor,
-                        ),
-                      ),
-                    ],
+                  SizedBox(width: 5),
+                  Text(
+                    'Open Source',
+                    style: TextStyle(fontSize: 13, color: _subtitleColor),
                   ),
                 ],
               ),
@@ -129,17 +102,24 @@ class AboutPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE5EEFF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              CupertinoIcons.person_fill,
-              size: 42,
-              color: _primaryColor,
+          ClipOval(
+            child: Image.asset(
+              'assets/about/avatar.png',
+              width: 76,
+              height: 76,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 76,
+                  height: 76,
+                  color: const Color(0xFFE5EEFF),
+                  child: const Icon(
+                    CupertinoIcons.person_fill,
+                    size: 42,
+                    color: _primaryColor,
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(width: 18),
@@ -149,10 +129,7 @@ class AboutPage extends StatelessWidget {
               children: [
                 Text(
                   '开发者',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _subtitleColor,
-                  ),
+                  style: TextStyle(fontSize: 14, color: _subtitleColor),
                 ),
                 SizedBox(height: 5),
                 Text(
@@ -166,10 +143,7 @@ class AboutPage extends StatelessWidget {
                 SizedBox(height: 6),
                 Text(
                   '独立开发者 · 开源项目爱好者',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _subtitleColor,
-                  ),
+                  style: TextStyle(fontSize: 13, color: _subtitleColor),
                 ),
               ],
             ),
@@ -204,17 +178,13 @@ class AboutPage extends StatelessWidget {
           // Project Overview
           Row(
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: _primaryColor,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Icon(
-                  CupertinoIcons.bolt_fill,
-                  color: CupertinoColors.white,
-                  size: 30,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.asset(
+                  'assets/app_icon.png',
+                  width: 54,
+                  height: 54,
+                  fit: BoxFit.cover,
                 ),
               ),
               const SizedBox(width: 15),
@@ -233,10 +203,7 @@ class AboutPage extends StatelessWidget {
                     SizedBox(height: 5),
                     Text(
                       '面向电动车的控制应用',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _subtitleColor,
-                      ),
+                      style: TextStyle(fontSize: 14, color: _subtitleColor),
                     ),
                   ],
                 ),
@@ -246,10 +213,7 @@ class AboutPage extends StatelessWidget {
 
           const SizedBox(height: 22),
 
-          Container(
-            height: 0.5,
-            color: const Color(0xFFE5EAF1),
-          ),
+          Container(height: 0.5, color: const Color(0xFFE5EAF1)),
 
           // GitHub repo entry
           CupertinoButton(
@@ -257,11 +221,7 @@ class AboutPage extends StatelessWidget {
             onPressed: () => _openGithub(context),
             child: const Row(
               children: [
-                Icon(
-                  CupertinoIcons.link,
-                  size: 30,
-                  color: Color(0xFF24292F),
-                ),
+                Icon(CupertinoIcons.link, size: 30, color: Color(0xFF24292F)),
                 SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -278,10 +238,7 @@ class AboutPage extends StatelessWidget {
                       SizedBox(height: 6),
                       Text(
                         'github.com/Jack-Bell-Power/moto_key',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _subtitleColor,
-                        ),
+                        style: TextStyle(fontSize: 12, color: _subtitleColor),
                       ),
                     ],
                   ),
