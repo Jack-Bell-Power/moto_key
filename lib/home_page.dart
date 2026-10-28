@@ -176,44 +176,17 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 16),
 
                   // Electric start / Turn off the vehicle
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      borderRadius: BorderRadius.circular(12),
-                      color: isPowerOn
-                          ? const Color(0xFF4F9EFF)
-                          : const Color(0xFFF0F5FF),
-                      onPressed: () {
-                        setState(() {
-                          isPowerOn = !isPowerOn;
-                        });
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            CupertinoIcons.power,
-                            size: 20,
-                            color: isPowerOn
-                                ? CupertinoColors.white
-                                : const Color(0xFF4F9EFF),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            isPowerOn ? '关闭车辆' : '电启动',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isPowerOn
-                                  ? CupertinoColors.white
-                                  : const Color(0xFF4F9EFF),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  SlideAction(
+                    title: isPowerOn ? '滑动关闭车辆' : '滑动电启动',
+                    icon: CupertinoIcons.power,
+                    color: isPowerOn
+                        ? const Color(0xFF4F9EFF)
+                        : const Color(0xFF4F9EFF),
+                    onCompleted: () {
+                      setState(() {
+                        isPowerOn = !isPowerOn;
+                      });
+                    },
                   ),
                 ],
               ),
@@ -328,6 +301,116 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SlideAction extends StatefulWidget {
+  const SlideAction({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onCompleted,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onCompleted;
+
+  @override
+  State<SlideAction> createState() => _SlideActionState();
+}
+
+class _SlideActionState extends State<SlideAction> {
+  double _progress = 0;
+  bool _dragging = false;
+
+  void _onDragUpdate(DragUpdateDetails details, double maxDistance) {
+    setState(() {
+      _dragging = true;
+      _progress = (_progress + details.delta.dx / maxDistance).clamp(0.0, 1.0);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_progress >= 0.9) {
+      widget.onCompleted();
+    }
+
+    setState(() {
+      _progress = 0;
+      _dragging = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double height = 50;
+        const double padding = 4;
+        const double thumbSize = height - padding * 2;
+
+        final double maxDistance =
+            constraints.maxWidth - thumbSize - padding * 2;
+
+        return Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Opacity(
+                  opacity: 1 - _progress * 0.7,
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      color: widget.color,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: padding + _progress * maxDistance,
+                top: padding,
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    _onDragUpdate(details, maxDistance);
+                  },
+                  onHorizontalDragEnd: _onDragEnd,
+                  child: Container(
+                    width: thumbSize,
+                    height: thumbSize,
+                    decoration: BoxDecoration(
+                      color: widget.color,
+                      borderRadius: BorderRadius.circular(11),
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.color.withValues(alpha: 0.22),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      color: CupertinoColors.white,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
