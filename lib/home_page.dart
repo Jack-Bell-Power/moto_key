@@ -394,17 +394,6 @@ class _HomePageState extends State<HomePage> {
                   Row(
                     children: [
                       _buildCommand(
-                        icon: 'assets/common/sitBucket.png',
-                        activeIcon: 'assets/common/activeSitBucket.png',
-                        title: '打开坐桶',
-                        active: isSitBucket,
-                        onTap: () {
-                          setState(() {
-                            isSitBucket = !isSitBucket;
-                          });
-                        },
-                      ),
-                      _buildCommand(
                         icon: 'assets/common/unlockImg.png',
                         activeIcon: 'assets/common/activeUnlockImg.png',
                         title: '解防',
