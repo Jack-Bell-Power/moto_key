@@ -11,25 +11,284 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // The highlighted state of the four function buttons
   bool isUnlock = false;
   bool isSetLock = false;
   bool isFindCar = false;
-
-  // Electric start status
   bool isPowerOn = false;
+  bool isSitBucket = false;
+
+  String? connectedDeviceId;
+  String? connectedDeviceName;
+  String? connectingDeviceId;
+
+  bool isConnecting = false;
+  bool isScanning = false;
+
+  final List<_BleDevice> _historyDevices = [
+    _BleDevice(
+      id: 'DX02252851',
+      name: 'DX02252851',
+      rssi: -52,
+      isHistory: true,
+      isLast: true,
+      isFound: false,
+    ),
+  ];
+
+  final List<_BleDevice> _nearbyDevices = [
+    _BleDevice(
+      id: 'ble-001',
+      name: 'Moto-BLE-01',
+      rssi: -65,
+    ),
+    _BleDevice(
+      id: 'ble-002',
+      name: 'BLE-Device',
+      rssi: -78,
+    ),
+  ];
+
+  Future<void> _showDeviceDialog() async {
+    await showCupertinoDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> searchDevices() async {
+              if (isScanning || isConnecting) return;
+
+              setDialogState(() {
+                isScanning = true;
+              });
+
+              // Simulate a BLE scan.
+              await Future<void>.delayed(
+                const Duration(milliseconds: 900),
+              );
+
+              if (!mounted || !dialogContext.mounted) return;
+
+              _nearbyDevices
+                ..clear()
+                ..addAll([
+                  _BleDevice(
+                    id: 'ble-001',
+                    name: 'Moto-BLE-01',
+                    rssi: -61,
+                  ),
+                  _BleDevice(
+                    id: 'ble-003',
+                    name: 'Moto-BLE-02',
+                    rssi: -72,
+                  ),
+                  _BleDevice(
+                    id: 'DX02252851',
+                    name: 'DX02252851',
+                    rssi: -48,
+                  ),
+                ]);
+
+              _removeDuplicateDevices();
+
+              setDialogState(() {
+                isScanning = false;
+              });
+            }
+
+            Future<void> connectDevice(_BleDevice device) async {
+              if (isConnecting || isScanning) return;
+
+              setDialogState(() {
+                isConnecting = true;
+                connectingDeviceId = device.id;
+              });
+
+              // Simulate a BLE connection.
+              await Future<void>.delayed(
+                const Duration(milliseconds: 800),
+              );
+
+              if (!mounted || !dialogContext.mounted) return;
+
+              setState(() {
+                connectedDeviceId = device.id;
+                connectedDeviceName =
+                    device.name.isEmpty ? '未知设备' : device.name;
+
+                _historyDevices.removeWhere(
+                  (item) => item.id == device.id,
+                );
+
+                for (final item in _historyDevices) {
+                  item.isLast = false;
+                }
+
+                _historyDevices.insert(
+                  0,
+                  _BleDevice(
+                    id: device.id,
+                    name: device.name,
+                    rssi: device.rssi,
+                    isHistory: true,
+                    isLast: true,
+                    isFound: true,
+                  ),
+                );
+              });
+
+              setDialogState(() {
+                isConnecting = false;
+                connectingDeviceId = null;
+              });
+
+              Navigator.of(dialogContext).pop();
+            }
+
+            final historyIds = _historyDevices
+                .map((device) => device.id)
+                .toSet();
+
+            final visibleNearby = _nearbyDevices
+                .where((device) => !historyIds.contains(device.id))
+                .toList();
+
+            return CupertinoAlertDialog(
+              title: const Text(
+                '连接蓝牙设备',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    const Text(
+                      '请选择要连接的摩托车设备',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: CupertinoColors.systemGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_historyDevices.isNotEmpty) ...[
+                      const _SectionTitle(title: '连接过的设备'),
+                      const SizedBox(height: 8),
+                      ..._historyDevices.map(
+                        (device) => _DeviceTile(
+                          device: device,
+                          connected: connectedDeviceId == device.id,
+                          connecting:
+                              connectingDeviceId == device.id,
+                          disabled: isConnecting || isScanning,
+                          onTap: () => connectDevice(device),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    const _SectionTitle(title: '新发现的设备'),
+                    const SizedBox(height: 8),
+                    if (isScanning)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CupertinoActivityIndicator(),
+                            SizedBox(width: 8),
+                            Text(
+                              '正在搜索设备...',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (visibleNearby.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: Text(
+                            '暂未发现新设备',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: CupertinoColors.systemGrey,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ...visibleNearby.map(
+                        (device) => _DeviceTile(
+                          device: device,
+                          connected: connectedDeviceId == device.id,
+                          connecting:
+                              connectingDeviceId == device.id,
+                          disabled: isConnecting || isScanning,
+                          onTap: () => connectDevice(device),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: isConnecting || isScanning
+                      ? null
+                      : searchDevices,
+                  child: isScanning
+                      ? const CupertinoActivityIndicator()
+                      : const Text('搜索设备'),
+                ),
+                CupertinoDialogAction(
+                  onPressed: isConnecting || isScanning
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('取消'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _removeDuplicateDevices() {
+    final Map<String, _BleDevice> nearbyById = {
+      for (final device in _nearbyDevices) device.id: device,
+    };
+
+    for (final history in _historyDevices) {
+      final found = nearbyById[history.id];
+
+      history.isFound = found != null;
+
+      if (found != null) {
+        history.rssi = found.rssi;
+        if (found.name.isNotEmpty) {
+          history.name = found.name;
+        }
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(middle: Text('首页')),
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('首页'),
+      ),
       child: SafeArea(
         bottom: false,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Device Info Card
             Container(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               decoration: BoxDecoration(
@@ -39,51 +298,49 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Device model and search button
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          '设备型号',
-                          style: TextStyle(
+                          connectedDeviceName ?? '设备型号',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: CupertinoColors.black,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
-                        onPressed: () {},
+                        onPressed: _showDeviceDialog,
                         child: const Text('搜索设备'),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 8),
-
-                  // Bluetooth status
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         CupertinoIcons.bluetooth,
                         size: 18,
-                        color: CupertinoColors.systemGrey,
+                        color: connectedDeviceId != null
+                            ? const Color(0xFF4F9EFF)
+                            : CupertinoColors.systemGrey,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        '蓝牙未连接',
-                        style: TextStyle(
+                        connectedDeviceId != null
+                            ? '蓝牙已连接'
+                            : '蓝牙未连接',
+                        style: const TextStyle(
                           fontSize: 14,
                           color: CupertinoColors.systemGrey,
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
-                  // Voltage and vehicle pictures
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -122,21 +379,31 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Vehicle Function Control Card
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 16,
+              ),
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 children: [
-                  // Four function buttons
                   Row(
                     children: [
+                      _buildCommand(
+                        icon: 'assets/common/sitBucket.png',
+                        activeIcon: 'assets/common/activeSitBucket.png',
+                        title: '打开坐桶',
+                        active: isSitBucket,
+                        onTap: () {
+                          setState(() {
+                            isSitBucket = !isSitBucket;
+                          });
+                        },
+                      ),
                       _buildCommand(
                         icon: 'assets/common/unlockImg.png',
                         activeIcon: 'assets/common/activeUnlockImg.png',
@@ -172,10 +439,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
-
-                  // Electric start / Turn off the vehicle
                   SlideAction(
                     title: isPowerOn ? '滑动关闭车辆' : '滑动电启动',
                     icon: CupertinoIcons.power,
@@ -191,10 +455,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // More settings and instructions
             Container(
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
@@ -206,7 +467,10 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/setImg.png',
                     title: '更多设置',
                     onTap: () {
-                      Navigator.of(context, rootNavigator: true).push(
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).push(
                         CupertinoPageRoute(
                           builder: (_) => const MoreSettingsPage(),
                         ),
@@ -222,7 +486,10 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/qusetion.png',
                     title: '使用说明',
                     onTap: () {
-                      Navigator.of(context, rootNavigator: true).push(
+                      Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).push(
                         CupertinoPageRoute<void>(
                           builder: (_) => const UsageGuidePage(),
                         ),
@@ -238,7 +505,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // General function button: switch between normal and highlighted images based on status
   Widget _buildCommand({
     required String icon,
     required String activeIcon,
@@ -248,7 +514,10 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+        padding: const EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: 2,
+        ),
         onPressed: onTap,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -263,11 +532,13 @@ class _HomePageState extends State<HomePage> {
             Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: active
                     ? const Color(0xFF4F9EFF)
                     : const Color(0xFF333333),
-                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: active
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
           ],
@@ -282,16 +553,27 @@ class _HomePageState extends State<HomePage> {
     required VoidCallback onTap,
   }) {
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 14,
+      ),
       onPressed: onTap,
       child: Row(
         children: [
-          Image.asset(icon, width: 24, height: 24, fit: BoxFit.contain),
+          Image.asset(
+            icon,
+            width: 24,
+            height: 24,
+            fit: BoxFit.contain,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Color(0xFF333333),
+              ),
             ),
           ),
           const Icon(
@@ -299,6 +581,138 @@ class _HomePageState extends State<HomePage> {
             size: 16,
             color: Color(0xFF999999),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BleDevice {
+  _BleDevice({
+    required this.id,
+    required this.name,
+    required this.rssi,
+    this.isHistory = false,
+    this.isLast = false,
+    this.isFound = true,
+  });
+
+  final String id;
+  String name;
+  int rssi;
+  final bool isHistory;
+  bool isLast;
+  bool isFound;
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF6B7280),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceTile extends StatelessWidget {
+  const _DeviceTile({
+    required this.device,
+    required this.connected,
+    required this.connecting,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  final _BleDevice device;
+  final bool connected;
+  final bool connecting;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool unavailable =
+        device.isHistory && !device.isFound;
+
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 10,
+      ),
+      onPressed: disabled ? null : onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              CupertinoIcons.bluetooth,
+              size: 21,
+              color: Color(0xFF3478F6),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  device.name.isEmpty ? '未知设备' : device.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF222222),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  unavailable
+                      ? '未发现'
+                      : device.isHistory
+                          ? '${device.isLast ? '上次连接' : '历史设备'} · ${device.rssi} dBm'
+                          : '蓝牙设备 · ${device.rssi} dBm',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: unavailable
+                        ? CupertinoColors.systemGrey2
+                        : CupertinoColors.systemGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          if (connecting)
+            const CupertinoActivityIndicator()
+          else if (connected)
+            const Icon(
+              CupertinoIcons.checkmark_circle_fill,
+              color: Color(0xFF3478F6),
+              size: 22,
+            )
+          else
+            const Icon(
+              CupertinoIcons.chevron_right,
+              color: Color(0xFF9CA3AF),
+              size: 17,
+            ),
         ],
       ),
     );
@@ -338,13 +752,16 @@ class _SlideActionState extends State<SlideAction> {
 
   void _onDragUpdate(DragUpdateDetails details, double maxOffset) {
     setState(() {
-      _dragOffset = (_dragOffset + details.delta.dx).clamp(0.0, maxOffset);
+      _dragOffset = (_dragOffset + details.delta.dx)
+          .clamp(0.0, maxOffset)
+          .toDouble();
     });
   }
 
   void _onDragEnd(double maxOffset) {
     final bool oldState = _isOn;
-    final double progress = maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
+    final double progress =
+        maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
 
     setState(() {
       if (progress >= 0.75) {
@@ -353,7 +770,6 @@ class _SlideActionState extends State<SlideAction> {
         _isOn = false;
       }
 
-      // Keep the slider at the corresponding end.
       _dragOffset = _isOn ? maxOffset : 0;
     });
 
@@ -363,16 +779,30 @@ class _SlideActionState extends State<SlideAction> {
   }
 
   @override
+  void didUpdateWidget(covariant SlideAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final bool newIsOn = widget.title.contains('关闭车辆');
+
+    if (newIsOn != _isOn) {
+      _isOn = newIsOn;
+      _dragOffset = 0;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double maxOffset =
-            (constraints.maxWidth - _thumbSize - _padding * 2).clamp(
-              0.0,
-              double.infinity,
-            );
+            (constraints.maxWidth - _thumbSize - _padding * 2)
+                .clamp(0.0, double.infinity)
+                .toDouble();
 
-        final Color activeColor = _isOn ? _red : _blue;
+        final double dragOffset =
+            _dragOffset.clamp(0.0, maxOffset).toDouble();
+
+        final Color activeColor = _isOn ? _red : widget.color;
         final Color trackColor = _isOn ? _lightRed : _lightBlue;
 
         return Container(
@@ -385,7 +815,7 @@ class _SlideActionState extends State<SlideAction> {
             children: [
               Center(
                 child: Text(
-                  _isOn ? '关闭车辆' : '电启动',
+                  widget.title,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -394,7 +824,7 @@ class _SlideActionState extends State<SlideAction> {
                 ),
               ),
               Positioned(
-                left: _padding + _dragOffset,
+                left: _padding + dragOffset,
                 top: _padding,
                 child: GestureDetector(
                   onHorizontalDragUpdate: (details) =>
