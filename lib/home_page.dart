@@ -324,80 +324,83 @@ class SlideAction extends StatefulWidget {
 }
 
 class _SlideActionState extends State<SlideAction> {
-  double _progress = 0;
-  bool _dragging = false;
+  // false：The vehicle is off, and the slider is on the left.
+  // true：The vehicle has started, and the slider is on the right.
+  bool _isOn = false;
+  double _dragOffset = 0;
 
-  void _onDragUpdate(DragUpdateDetails details, double maxDistance) {
+  static const double _height = 48;
+  static const double _padding = 4;
+  static const double _thumbSize = _height - _padding * 2;
+
+  void _onDragUpdate(DragUpdateDetails details, double maxOffset) {
     setState(() {
-      _dragging = true;
-      _progress = (_progress + details.delta.dx / maxDistance).clamp(0.0, 1.0);
+      _dragOffset = (_dragOffset + details.delta.dx).clamp(0.0, maxOffset);
     });
   }
 
-  void _onDragEnd(DragEndDetails details) {
-    if (_progress >= 0.9) {
-      widget.onCompleted();
-    }
+  void _onDragEnd(double maxOffset) {
+    final bool shouldTurnOn = _dragOffset >= maxOffset * 0.75;
+
+    final bool shouldTurnOff = _dragOffset <= maxOffset * 0.25;
 
     setState(() {
-      _progress = 0;
-      _dragging = false;
+      if (shouldTurnOn) {
+        _isOn = true;
+      } else if (shouldTurnOff) {
+        _isOn = false;
+      }
+
+      // 根据状态停留在左侧或右侧
+      _dragOffset = _isOn ? maxOffset : 0;
     });
+
+    // 只有状态发生变化时才执行回调
+    if (_isOn != shouldTurnOff && shouldTurnOn) {
+      widget.onCompleted();
+    } else if (shouldTurnOff && _isOn == false) {
+      widget.onCompleted();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const double height = 50;
-        const double padding = 4;
-        const double thumbSize = height - padding * 2;
-
-        final double maxDistance =
-            constraints.maxWidth - thumbSize - padding * 2;
+        final double maxOffset =
+            constraints.maxWidth - _thumbSize - _padding * 2;
 
         return Container(
-          height: height,
+          height: _height,
           decoration: BoxDecoration(
-            color: widget.color.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(14),
+            color: _isOn ? widget.color : const Color(0xFFF0F5FF),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Stack(
             children: [
               Center(
-                child: Opacity(
-                  opacity: 1 - _progress * 0.7,
-                  child: Text(
-                    widget.title,
-                    style: TextStyle(
-                      color: widget.color,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                child: Text(
+                  _isOn ? '关闭车辆' : '电启动',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _isOn ? CupertinoColors.white : widget.color,
                   ),
                 ),
               ),
               Positioned(
-                left: padding + _progress * maxDistance,
-                top: padding,
+                left: _padding + _dragOffset,
+                top: _padding,
                 child: GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    _onDragUpdate(details, maxDistance);
-                  },
-                  onHorizontalDragEnd: _onDragEnd,
+                  onHorizontalDragUpdate: (details) =>
+                      _onDragUpdate(details, maxOffset),
+                  onHorizontalDragEnd: (_) => _onDragEnd(maxOffset),
                   child: Container(
-                    width: thumbSize,
-                    height: thumbSize,
+                    width: _thumbSize,
+                    height: _thumbSize,
                     decoration: BoxDecoration(
                       color: widget.color,
-                      borderRadius: BorderRadius.circular(11),
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.color.withValues(alpha: 0.22),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       widget.icon,
