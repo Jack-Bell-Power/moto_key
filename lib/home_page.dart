@@ -324,14 +324,17 @@ class SlideAction extends StatefulWidget {
 }
 
 class _SlideActionState extends State<SlideAction> {
-  // false：The vehicle is off, and the slider is on the left.
-  // true：The vehicle has started, and the slider is on the right.
   bool _isOn = false;
   double _dragOffset = 0;
 
   static const double _height = 48;
   static const double _padding = 4;
   static const double _thumbSize = _height - _padding * 2;
+
+  static const Color _blue = Color(0xFF4F9EFF);
+  static const Color _lightBlue = Color(0xFFF0F5FF);
+  static const Color _red = Color(0xFFFF3B30);
+  static const Color _lightRed = Color(0xFFFFEDEC);
 
   void _onDragUpdate(DragUpdateDetails details, double maxOffset) {
     setState(() {
@@ -340,25 +343,21 @@ class _SlideActionState extends State<SlideAction> {
   }
 
   void _onDragEnd(double maxOffset) {
-    final bool shouldTurnOn = _dragOffset >= maxOffset * 0.75;
-
-    final bool shouldTurnOff = _dragOffset <= maxOffset * 0.25;
+    final bool oldState = _isOn;
+    final double progress = maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
 
     setState(() {
-      if (shouldTurnOn) {
+      if (progress >= 0.75) {
         _isOn = true;
-      } else if (shouldTurnOff) {
+      } else if (progress <= 0.25) {
         _isOn = false;
       }
 
-      // Stay on the left or right side depending on the state
+      // Keep the slider at the corresponding end.
       _dragOffset = _isOn ? maxOffset : 0;
     });
 
-    // The callback is only executed when the state changes
-    if (_isOn != shouldTurnOff && shouldTurnOn) {
-      widget.onCompleted();
-    } else if (shouldTurnOff && _isOn == false) {
+    if (oldState != _isOn) {
       widget.onCompleted();
     }
   }
@@ -368,12 +367,18 @@ class _SlideActionState extends State<SlideAction> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final double maxOffset =
-            constraints.maxWidth - _thumbSize - _padding * 2;
+            (constraints.maxWidth - _thumbSize - _padding * 2).clamp(
+              0.0,
+              double.infinity,
+            );
+
+        final Color activeColor = _isOn ? _red : _blue;
+        final Color trackColor = _isOn ? _lightRed : _lightBlue;
 
         return Container(
           height: _height,
           decoration: BoxDecoration(
-            color: _isOn ? widget.color : const Color(0xFFF0F5FF),
+            color: trackColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Stack(
@@ -384,7 +389,7 @@ class _SlideActionState extends State<SlideAction> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: _isOn ? CupertinoColors.white : widget.color,
+                    color: activeColor,
                   ),
                 ),
               ),
@@ -399,7 +404,7 @@ class _SlideActionState extends State<SlideAction> {
                     width: _thumbSize,
                     height: _thumbSize,
                     decoration: BoxDecoration(
-                      color: widget.color,
+                      color: activeColor,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
