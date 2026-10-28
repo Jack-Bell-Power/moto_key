@@ -180,7 +180,7 @@ class _HomePageState extends State<HomePage> {
                     title: isPowerOn ? '滑动关闭车辆' : '滑动电启动',
                     icon: CupertinoIcons.power,
                     color: isPowerOn
-                        ? const Color(0xFF4F9EFF)
+                        ? const Color(0xFFFF3B30)
                         : const Color(0xFF4F9EFF),
                     onCompleted: () {
                       setState(() {
@@ -351,11 +351,11 @@ class _SlideActionState extends State<SlideAction> {
         _isOn = false;
       }
 
-      // 根据状态停留在左侧或右侧
+      // Stay on the left or right side depending on the state
       _dragOffset = _isOn ? maxOffset : 0;
     });
 
-    // 只有状态发生变化时才执行回调
+    // The callback is only executed when the state changes
     if (_isOn != shouldTurnOff && shouldTurnOn) {
       widget.onCompleted();
     } else if (shouldTurnOff && _isOn == false) {
