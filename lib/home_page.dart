@@ -100,6 +100,7 @@ class _HomePageState extends State<HomePage> {
                         id: id,
                         name: name,
                         rssi: result.rssi,
+                        bluetoothDevice: result.device,
                       );
                     }
 
@@ -177,47 +178,107 @@ class _HomePageState extends State<HomePage> {
             Future<void> connectDevice(_BleDevice device) async {
               if (isConnecting || isScanning) return;
 
+              final bleDevice = device.bluetoothDevice;
+
+              if (bleDevice == null) {
+                await showCupertinoDialog<void>(
+                  context: dialogContext,
+                  builder: (context) => CupertinoAlertDialog(
+                    title: const Text('无法连接'),
+                    content: const Text('未获取到有效的蓝牙设备，请重新搜索。'),
+                    actions: [
+                      CupertinoDialogAction(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
               setDialogState(() {
                 isConnecting = true;
                 connectingDeviceId = device.id;
               });
 
-              // Simulate a BLE connection.
-              await Future<void>.delayed(const Duration(milliseconds: 800));
-
-              if (!mounted || !dialogContext.mounted) return;
-
-              setState(() {
-                connectedDeviceId = device.id;
-                connectedDeviceName = device.name.isEmpty
-                    ? '未知设备'
-                    : device.name;
-
-                _historyDevices.removeWhere((item) => item.id == device.id);
-
-                for (final item in _historyDevices) {
-                  item.isLast = false;
+              try {
+                if (FlutterBluePlus.isScanningNow) {
+                  await FlutterBluePlus.stopScan();
                 }
 
-                _historyDevices.insert(
-                  0,
-                  _BleDevice(
-                    id: device.id,
-                    name: device.name,
-                    rssi: device.rssi,
-                    isHistory: true,
-                    isLast: true,
-                    isFound: true,
+                await bleDevice.connect(
+                  license: License.nonprofit,
+                  timeout: const Duration(seconds: 15),
+                );
+
+                if (!mounted || !dialogContext.mounted) return;
+
+                final services = await bleDevice.discoverServices();
+
+                if (!mounted || !dialogContext.mounted) return;
+
+                debugPrint('BLE connected: ${bleDevice.remoteId}');
+                debugPrint('Discovered ${services.length} BLE services.');
+
+                setState(() {
+                  connectedDeviceId = bleDevice.remoteId.str;
+                  connectedDeviceName = device.name.isEmpty
+                      ? '未知设备'
+                      : device.name;
+
+                  _historyDevices.removeWhere((item) => item.id == device.id);
+
+                  for (final item in _historyDevices) {
+                    item.isLast = false;
+                  }
+
+                  _historyDevices.insert(
+                    0,
+                    _BleDevice(
+                      id: bleDevice.remoteId.str,
+                      name: device.name,
+                      rssi: device.rssi,
+                      isHistory: true,
+                      isLast: true,
+                      isFound: true,
+                      bluetoothDevice: bleDevice,
+                    ),
+                  );
+                });
+
+                setDialogState(() {
+                  isConnecting = false;
+                  connectingDeviceId = null;
+                });
+
+                Navigator.of(dialogContext).pop();
+              } catch (error) {
+                debugPrint('BLE connection failed: $error');
+
+                if (!mounted || !dialogContext.mounted) return;
+
+                setDialogState(() {
+                  isConnecting = false;
+                  connectingDeviceId = null;
+                });
+
+                await showCupertinoDialog<void>(
+                  context: dialogContext,
+                  builder: (context) => CupertinoAlertDialog(
+                    title: const Text('连接失败'),
+                    content: Text(
+                      '无法连接到 ${device.name.isEmpty ? '未知设备' : device.name}。\n$error',
+                    ),
+                    actions: [
+                      CupertinoDialogAction(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('确定'),
+                      ),
+                    ],
                   ),
                 );
-              });
-
-              setDialogState(() {
-                isConnecting = false;
-                connectingDeviceId = null;
-              });
-
-              Navigator.of(dialogContext).pop();
+              }
             }
 
             final historyIds = _historyDevices
@@ -353,6 +414,8 @@ class _HomePageState extends State<HomePage> {
 
       if (found != null) {
         history.rssi = found.rssi;
+        history.bluetoothDevice = found.bluetoothDevice;
+
         if (found.name.isNotEmpty) {
           history.name = found.name;
         }
@@ -722,6 +785,7 @@ class _BleDevice {
     this.isHistory = false,
     this.isLast = false,
     this.isFound = true,
+    this.bluetoothDevice,
   });
 
   final String id;
@@ -730,6 +794,7 @@ class _BleDevice {
   final bool isHistory;
   bool isLast;
   bool isFound;
+  BluetoothDevice? bluetoothDevice;
 }
 
 class _SectionTitle extends StatelessWidget {
