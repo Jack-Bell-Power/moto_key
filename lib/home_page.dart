@@ -109,6 +109,11 @@ class _HomePageState extends State<HomePage> {
                         ..addAll(devices.values);
 
                       _removeDuplicateDevices();
+
+                      // Hide the loading animation as soon as the first result arrives.
+                      if (devices.isNotEmpty) {
+                        isScanning = false;
+                      }
                     });
                   },
                   onError: (Object error) {
