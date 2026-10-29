@@ -42,6 +42,10 @@ class _HomePageState extends State<HomePage> {
   final List<_BleDevice> _nearbyDevices = [];
 
   Future<void> _showDeviceDialog() async {
+    await _initializeBluetooth();
+
+    if (!mounted) return;
+
     await showCupertinoDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -67,12 +71,14 @@ class _HomePageState extends State<HomePage> {
                   throw Exception('Bluetooth is not supported on this device.');
                 }
 
-                final adapterState = await FlutterBluePlus.adapterState.first;
+                final adapterState = await FlutterBluePlus.adapterState
+                    .firstWhere(
+                      (state) => state != BluetoothAdapterState.unknown,
+                    )
+                    .timeout(const Duration(seconds: 5));
 
                 if (adapterState != BluetoothAdapterState.on) {
-                  throw Exception(
-                    'Please turn on Bluetooth and grant permission.',
-                  );
+                  throw Exception('Bluetooth is not turned on: $adapterState');
                 }
 
                 resultsSubscription = FlutterBluePlus.onScanResults.listen(
@@ -336,6 +342,23 @@ class _HomePageState extends State<HomePage> {
           history.name = found.name;
         }
       }
+    }
+  }
+
+  Future<void> _initializeBluetooth() async {
+    try {
+      final supported = await FlutterBluePlus.isSupported;
+
+      if (!supported) {
+        debugPrint('BLE is not supported.');
+        return;
+      }
+
+      await FlutterBluePlus.adapterState
+          .firstWhere((state) => state != BluetoothAdapterState.unknown)
+          .timeout(const Duration(seconds: 5));
+    } catch (error) {
+      debugPrint('BLE initialization failed: $error');
     }
   }
 
