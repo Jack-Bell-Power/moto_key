@@ -1,7 +1,11 @@
 import 'package:flutter/cupertino.dart';
 
+import 'dart:async';
+
 import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
+
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,18 +39,7 @@ class _HomePageState extends State<HomePage> {
     ),
   ];
 
-  final List<_BleDevice> _nearbyDevices = [
-    _BleDevice(
-      id: 'ble-001',
-      name: 'Moto-BLE-01',
-      rssi: -65,
-    ),
-    _BleDevice(
-      id: 'ble-002',
-      name: 'BLE-Device',
-      rssi: -78,
-    ),
-  ];
+  final List<_BleDevice> _nearbyDevices = [];
 
   Future<void> _showDeviceDialog() async {
     await showCupertinoDialog<void>(
@@ -60,40 +53,114 @@ class _HomePageState extends State<HomePage> {
 
               setDialogState(() {
                 isScanning = true;
+                _nearbyDevices.clear();
               });
 
-              // Simulate a BLE scan.
-              await Future<void>.delayed(
-                const Duration(milliseconds: 900),
-              );
+              StreamSubscription<List<ScanResult>>? resultsSubscription;
+              StreamSubscription<bool>? scanStateSubscription;
+              var scanStarted = false;
 
-              if (!mounted || !dialogContext.mounted) return;
+              try {
+                final supported = await FlutterBluePlus.isSupported;
 
-              _nearbyDevices
-                ..clear()
-                ..addAll([
-                  _BleDevice(
-                    id: 'ble-001',
-                    name: 'Moto-BLE-01',
-                    rssi: -61,
+                if (!supported) {
+                  throw Exception('Bluetooth is not supported on this device.');
+                }
+
+                final adapterState = await FlutterBluePlus.adapterState.first;
+
+                if (adapterState != BluetoothAdapterState.on) {
+                  throw Exception(
+                    'Please turn on Bluetooth and grant permission.',
+                  );
+                }
+
+                resultsSubscription = FlutterBluePlus.onScanResults.listen(
+                  (results) {
+                    if (!mounted || !dialogContext.mounted) return;
+
+                    final devices = <String, _BleDevice>{};
+
+                    for (final result in results) {
+                      final id = result.device.remoteId.str;
+                      final advertisedName = result.advertisementData.advName;
+                      final platformName = result.device.platformName;
+
+                      final name = advertisedName.isNotEmpty
+                          ? advertisedName
+                          : platformName;
+
+                      devices[id] = _BleDevice(
+                        id: id,
+                        name: name,
+                        rssi: result.rssi,
+                      );
+                    }
+
+                    setDialogState(() {
+                      _nearbyDevices
+                        ..clear()
+                        ..addAll(devices.values);
+
+                      _removeDuplicateDevices();
+                    });
+                  },
+                  onError: (Object error) {
+                    if (!mounted || !dialogContext.mounted) return;
+
+                    setDialogState(() {
+                      isScanning = false;
+                    });
+                  },
+                );
+
+                scanStateSubscription = FlutterBluePlus.isScanning.listen((
+                  scanning,
+                ) {
+                  if (!mounted || !dialogContext.mounted) return;
+
+                  if (scanning) {
+                    scanStarted = true;
+                    return;
+                  }
+
+                  if (scanStarted) {
+                    setDialogState(() {
+                      isScanning = false;
+                    });
+
+                    unawaited(resultsSubscription?.cancel());
+                    unawaited(scanStateSubscription?.cancel());
+                  }
+                });
+
+                await FlutterBluePlus.startScan(
+                  timeout: const Duration(seconds: 12),
+                );
+              } catch (error) {
+                await resultsSubscription?.cancel();
+                await scanStateSubscription?.cancel();
+
+                if (!mounted || !dialogContext.mounted) return;
+
+                setDialogState(() {
+                  isScanning = false;
+                });
+
+                await showCupertinoDialog<void>(
+                  context: dialogContext,
+                  builder: (context) => CupertinoAlertDialog(
+                    title: const Text('蓝牙扫描失败'),
+                    content: Text(error.toString()),
+                    actions: [
+                      CupertinoDialogAction(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('确定'),
+                      ),
+                    ],
                   ),
-                  _BleDevice(
-                    id: 'ble-003',
-                    name: 'Moto-BLE-02',
-                    rssi: -72,
-                  ),
-                  _BleDevice(
-                    id: 'DX02252851',
-                    name: 'DX02252851',
-                    rssi: -48,
-                  ),
-                ]);
-
-              _removeDuplicateDevices();
-
-              setDialogState(() {
-                isScanning = false;
-              });
+                );
+              }
             }
 
             Future<void> connectDevice(_BleDevice device) async {
@@ -105,20 +172,17 @@ class _HomePageState extends State<HomePage> {
               });
 
               // Simulate a BLE connection.
-              await Future<void>.delayed(
-                const Duration(milliseconds: 800),
-              );
+              await Future<void>.delayed(const Duration(milliseconds: 800));
 
               if (!mounted || !dialogContext.mounted) return;
 
               setState(() {
                 connectedDeviceId = device.id;
-                connectedDeviceName =
-                    device.name.isEmpty ? '未知设备' : device.name;
+                connectedDeviceName = device.name.isEmpty
+                    ? '未知设备'
+                    : device.name;
 
-                _historyDevices.removeWhere(
-                  (item) => item.id == device.id,
-                );
+                _historyDevices.removeWhere((item) => item.id == device.id);
 
                 for (final item in _historyDevices) {
                   item.isLast = false;
@@ -156,10 +220,7 @@ class _HomePageState extends State<HomePage> {
             return CupertinoAlertDialog(
               title: const Text(
                 '连接蓝牙设备',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
               ),
               content: SizedBox(
                 width: 320,
@@ -182,8 +243,7 @@ class _HomePageState extends State<HomePage> {
                         (device) => _DeviceTile(
                           device: device,
                           connected: connectedDeviceId == device.id,
-                          connecting:
-                              connectingDeviceId == device.id,
+                          connecting: connectingDeviceId == device.id,
                           disabled: isConnecting || isScanning,
                           onTap: () => connectDevice(device),
                         ),
@@ -200,10 +260,7 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             CupertinoActivityIndicator(),
                             SizedBox(width: 8),
-                            Text(
-                              '正在搜索设备...',
-                              style: TextStyle(fontSize: 13),
-                            ),
+                            Text('正在搜索设备...', style: TextStyle(fontSize: 13)),
                           ],
                         ),
                       )
@@ -225,8 +282,7 @@ class _HomePageState extends State<HomePage> {
                         (device) => _DeviceTile(
                           device: device,
                           connected: connectedDeviceId == device.id,
-                          connecting:
-                              connectingDeviceId == device.id,
+                          connecting: connectingDeviceId == device.id,
                           disabled: isConnecting || isScanning,
                           onTap: () => connectDevice(device),
                         ),
@@ -237,17 +293,23 @@ class _HomePageState extends State<HomePage> {
               ),
               actions: [
                 CupertinoDialogAction(
-                  onPressed: isConnecting || isScanning
-                      ? null
-                      : searchDevices,
+                  onPressed: isConnecting || isScanning ? null : searchDevices,
                   child: isScanning
                       ? const CupertinoActivityIndicator()
                       : const Text('搜索设备'),
                 ),
                 CupertinoDialogAction(
-                  onPressed: isConnecting || isScanning
+                  onPressed: isConnecting
                       ? null
-                      : () => Navigator.of(dialogContext).pop(),
+                      : () async {
+                          if (FlutterBluePlus.isScanningNow) {
+                            await FlutterBluePlus.stopScan();
+                          }
+
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        },
                   child: const Text('取消'),
                 ),
               ],
@@ -281,9 +343,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('首页'),
-      ),
+      navigationBar: const CupertinoNavigationBar(middle: Text('首页')),
       child: SafeArea(
         bottom: false,
         child: ListView(
@@ -330,9 +390,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        connectedDeviceId != null
-                            ? '蓝牙已连接'
-                            : '蓝牙未连接',
+                        connectedDeviceId != null ? '蓝牙已连接' : '蓝牙未连接',
                         style: const TextStyle(
                           fontSize: 14,
                           color: CupertinoColors.systemGrey,
@@ -381,10 +439,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -456,10 +511,7 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/setImg.png',
                     title: '更多设置',
                     onTap: () {
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(
+                      Navigator.of(context, rootNavigator: true).push(
                         CupertinoPageRoute(
                           builder: (_) => const MoreSettingsPage(),
                         ),
@@ -475,10 +527,7 @@ class _HomePageState extends State<HomePage> {
                     icon: 'assets/common/qusetion.png',
                     title: '使用说明',
                     onTap: () {
-                      Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).push(
+                      Navigator.of(context, rootNavigator: true).push(
                         CupertinoPageRoute<void>(
                           builder: (_) => const UsageGuidePage(),
                         ),
@@ -503,10 +552,7 @@ class _HomePageState extends State<HomePage> {
   }) {
     return Expanded(
       child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(
-          vertical: 8,
-          horizontal: 2,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
         onPressed: onTap,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -525,9 +571,7 @@ class _HomePageState extends State<HomePage> {
                 color: active
                     ? const Color(0xFF4F9EFF)
                     : const Color(0xFF333333),
-                fontWeight: active
-                    ? FontWeight.w600
-                    : FontWeight.normal,
+                fontWeight: active ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -542,27 +586,16 @@ class _HomePageState extends State<HomePage> {
     required VoidCallback onTap,
   }) {
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       onPressed: onTap,
       child: Row(
         children: [
-          Image.asset(
-            icon,
-            width: 24,
-            height: 24,
-            fit: BoxFit.contain,
-          ),
+          Image.asset(icon, width: 24, height: 24, fit: BoxFit.contain),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF333333),
-              ),
+              style: const TextStyle(fontSize: 15, color: Color(0xFF333333)),
             ),
           ),
           const Icon(
@@ -632,14 +665,10 @@ class _DeviceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool unavailable =
-        device.isHistory && !device.isFound;
+    final bool unavailable = device.isHistory && !device.isFound;
 
     return CupertinoButton(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       onPressed: disabled ? null : onTap,
       child: Row(
         children: [
@@ -675,8 +704,8 @@ class _DeviceTile extends StatelessWidget {
                   unavailable
                       ? '未发现'
                       : device.isHistory
-                          ? '${device.isLast ? '上次连接' : '历史设备'} · ${device.rssi} dBm'
-                          : '蓝牙设备 · ${device.rssi} dBm',
+                      ? '${device.isLast ? '上次连接' : '历史设备'} · ${device.rssi} dBm'
+                      : '蓝牙设备 · ${device.rssi} dBm',
                   style: TextStyle(
                     fontSize: 11,
                     color: unavailable
@@ -734,7 +763,6 @@ class _SlideActionState extends State<SlideAction> {
   static const double _padding = 4;
   static const double _thumbSize = _height - _padding * 2;
 
-  static const Color _blue = Color(0xFF4F9EFF);
   static const Color _lightBlue = Color(0xFFF0F5FF);
   static const Color _red = Color(0xFFFF3B30);
   static const Color _lightRed = Color(0xFFFFEDEC);
@@ -749,8 +777,7 @@ class _SlideActionState extends State<SlideAction> {
 
   void _onDragEnd(double maxOffset) {
     final bool oldState = _isOn;
-    final double progress =
-        maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
+    final double progress = maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
 
     setState(() {
       if (progress >= 0.75) {
@@ -788,8 +815,7 @@ class _SlideActionState extends State<SlideAction> {
                 .clamp(0.0, double.infinity)
                 .toDouble();
 
-        final double dragOffset =
-            _dragOffset.clamp(0.0, maxOffset).toDouble();
+        final double dragOffset = _dragOffset.clamp(0.0, maxOffset).toDouble();
 
         final Color activeColor = _isOn ? _red : widget.color;
         final Color trackColor = _isOn ? _lightRed : _lightBlue;

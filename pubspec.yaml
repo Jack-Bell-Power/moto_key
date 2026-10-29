@@ -37,6 +37,7 @@ dependencies:
   rust_lib_moto_key:
     path: rust_builder
   flutter_rust_bridge: 2.13.0
+  flutter_blue_plus: ^2.3.14
 
 dev_dependencies:
   flutter_test:
