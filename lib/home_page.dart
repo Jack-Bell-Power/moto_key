@@ -256,7 +256,17 @@ class _HomePageState extends State<HomePage> {
                           connected: connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
                           disabled: isConnecting || isScanning,
-                          onTap: () => connectDevice(device),
+                          onTap: () {
+                            if (device.isFound) {
+                              connectDevice(device);
+                            } else {
+                              _showUnavailableDeviceActions(
+                                dialogContext,
+                                device,
+                                () => setDialogState(() {}),
+                              );
+                            }
+                          },
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -365,6 +375,73 @@ class _HomePageState extends State<HomePage> {
     } catch (error) {
       debugPrint('BLE initialization failed: $error');
     }
+  }
+
+  Future<void> _showUnavailableDeviceActions(
+    BuildContext dialogContext,
+    _BleDevice device,
+    VoidCallback refreshDialog,
+  ) async {
+    final action = await showCupertinoModalPopup<String>(
+      context: dialogContext,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(device.name.isEmpty ? '未知设备' : device.name),
+        message: const Text('该设备当前未被发现，你可以删除这条历史记录。'),
+        actions: [
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.of(context).pop('delete');
+            },
+            child: const Text('删除设备'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () {
+            Navigator.of(context).pop('cancel');
+          },
+          child: const Text('取消'),
+        ),
+      ),
+    );
+
+    if (action != 'delete' || !mounted || !dialogContext.mounted) {
+      return;
+    }
+
+    final confirmed = await showCupertinoDialog<bool>(
+      context: dialogContext,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('删除历史设备'),
+        content: Text('确定删除「${device.name}」吗？'),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted || !dialogContext.mounted) {
+      return;
+    }
+
+    setState(() {
+      _historyDevices.removeWhere((item) => item.id == device.id);
+
+      if (connectedDeviceId == device.id) {
+        connectedDeviceId = null;
+        connectedDeviceName = null;
+      }
+    });
+
+    refreshDialog();
   }
 
   @override
