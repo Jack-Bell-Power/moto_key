@@ -2,10 +2,14 @@ import 'package:flutter/cupertino.dart';
 
 import 'dart:async';
 
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
-
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,20 +32,19 @@ class _HomePageState extends State<HomePage> {
   bool isConnecting = false;
   bool isScanning = false;
 
-  final List<_BleDevice> _historyDevices = [
-    _BleDevice(
-      id: 'DX02252851',
-      name: 'DX02252851',
-      rssi: -52,
-      isHistory: true,
-      isLast: true,
-      isFound: false,
-    ),
-  ];
+  bool _isHistoryLoaded = false;
+
+  final List<_BleDevice> _historyDevices = [];
 
   final List<_BleDevice> _nearbyDevices = [];
 
   Future<void> _showDeviceDialog() async {
+    if (!_isHistoryLoaded) {
+      await _loadHistoryDevices();
+    }
+
+    if (!mounted) return;
+
     await _initializeBluetooth();
 
     if (!mounted) return;
@@ -253,6 +256,8 @@ class _HomePageState extends State<HomePage> {
                 });
 
                 Navigator.of(dialogContext).pop();
+
+                await _saveHistoryDevices();
               } catch (error) {
                 debugPrint('BLE connection failed: $error');
 
@@ -504,7 +509,79 @@ class _HomePageState extends State<HomePage> {
       }
     });
 
+    await _saveHistoryDevices();
+
     refreshDialog();
+  }
+
+  static const String _historyStorageKey = 'ble_device_history';
+
+  final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistoryDevices();
+  }
+
+  Future<void> _loadHistoryDevices() async {
+    try {
+      final jsonString = await _preferences.getString(_historyStorageKey);
+
+      if (jsonString == null || jsonString.isEmpty) {
+        return;
+      }
+
+      final List<dynamic> records = jsonDecode(jsonString) as List<dynamic>;
+
+      final devices = records.map((record) {
+        final item = Map<String, dynamic>.from(record as Map);
+
+        return _BleDevice(
+          id: item['id'] as String,
+          name: item['name'] as String? ?? '',
+          rssi: item['rssi'] as int? ?? 0,
+          isHistory: true,
+          isLast: item['isLast'] as bool? ?? false,
+          isFound: false,
+        );
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _historyDevices
+          ..clear()
+          ..addAll(devices);
+      });
+    } catch (error) {
+      debugPrint('Failed to load BLE device history: $error');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isHistoryLoaded = true;
+        });
+      } else {
+        _isHistoryLoaded = true;
+      }
+    }
+  }
+
+  Future<void> _saveHistoryDevices() async {
+    try {
+      final records = _historyDevices.map((device) {
+        return <String, dynamic>{
+          'id': device.id,
+          'name': device.name,
+          'rssi': device.rssi,
+          'isLast': device.isLast,
+        };
+      }).toList();
+
+      await _preferences.setString(_historyStorageKey, jsonEncode(records));
+    } catch (error) {
+      debugPrint('Failed to save BLE device history: $error');
+    }
   }
 
   @override
