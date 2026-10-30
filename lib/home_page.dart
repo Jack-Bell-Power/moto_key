@@ -1,12 +1,9 @@
-import 'package:flutter/cupertino.dart';
-
 import 'dart:async';
-
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
@@ -46,6 +43,11 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
 
     await _initializeBluetooth();
+
+    if (!mounted) return;
+
+    // Check connected devices before opening the dialog.
+    await _loadConnectedDevices();
 
     if (!mounted) return;
 
@@ -415,7 +417,7 @@ class _HomePageState extends State<HomePage> {
     for (final history in _historyDevices) {
       final found = nearbyById[history.id];
 
-      history.isFound = found != null;
+      history.isFound = found != null || history.id == connectedDeviceId;
 
       if (found != null) {
         history.rssi = found.rssi;
@@ -581,6 +583,72 @@ class _HomePageState extends State<HomePage> {
       await _preferences.setString(_historyStorageKey, jsonEncode(records));
     } catch (error) {
       debugPrint('Failed to save BLE device history: $error');
+    }
+  }
+
+  Future<void> _loadConnectedDevices() async {
+    try {
+      final devices = FlutterBluePlus.connectedDevices;
+
+      if (!mounted) return;
+
+      setState(() {
+        // Reset current connection markers.
+        for (final item in _historyDevices) {
+          item.isFound = false;
+          item.bluetoothDevice = null;
+        }
+
+        for (final device in devices) {
+          final id = device.remoteId.str;
+
+          final oldDevice = _historyDevices.where((item) => item.id == id);
+
+          final oldName = oldDevice.isNotEmpty ? oldDevice.first.name : '';
+
+          _historyDevices.removeWhere((item) => item.id == id);
+
+          _historyDevices.insert(
+            0,
+            _BleDevice(
+              id: id,
+              name: device.platformName.isNotEmpty
+                  ? device.platformName
+                  : oldName,
+              rssi: 0,
+              isHistory: true,
+              isLast: true,
+              isFound: true,
+              bluetoothDevice: device,
+            ),
+          );
+        }
+
+        if (devices.isNotEmpty) {
+          final device = devices.first;
+
+          connectedDeviceId = device.remoteId.str;
+          connectedDeviceName = device.platformName.isNotEmpty
+              ? device.platformName
+              : _historyDevices
+                    .firstWhere(
+                      (item) => item.id == device.remoteId.str,
+                      orElse: () => _BleDevice(
+                        id: device.remoteId.str,
+                        name: '未知设备',
+                        rssi: 0,
+                      ),
+                    )
+                    .name;
+        } else {
+          connectedDeviceId = null;
+          connectedDeviceName = null;
+        }
+      });
+
+      await _saveHistoryDevices();
+    } catch (error) {
+      debugPrint('Failed to load connected devices: $error');
     }
   }
 
