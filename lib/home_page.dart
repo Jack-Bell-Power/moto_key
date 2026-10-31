@@ -593,7 +593,6 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       setState(() {
-        // Reset current connection markers.
         for (final item in _historyDevices) {
           item.isFound = false;
           item.bluetoothDevice = null;
@@ -602,11 +601,11 @@ class _HomePageState extends State<HomePage> {
         for (final device in devices) {
           final id = device.remoteId.str;
 
-          final oldDevice = _historyDevices.where((item) => item.id == id);
+          final index = _historyDevices.indexWhere((item) => item.id == id);
 
-          final oldName = oldDevice.isNotEmpty ? oldDevice.first.name : '';
+          if (index < 0) continue;
 
-          _historyDevices.removeWhere((item) => item.id == id);
+          final oldDevice = _historyDevices.removeAt(index);
 
           _historyDevices.insert(
             0,
@@ -614,8 +613,8 @@ class _HomePageState extends State<HomePage> {
               id: id,
               name: device.platformName.isNotEmpty
                   ? device.platformName
-                  : oldName,
-              rssi: 0,
+                  : oldDevice.name,
+              rssi: oldDevice.rssi,
               isHistory: true,
               isLast: true,
               isFound: true,
@@ -628,18 +627,13 @@ class _HomePageState extends State<HomePage> {
           final device = devices.first;
 
           connectedDeviceId = device.remoteId.str;
+
           connectedDeviceName = device.platformName.isNotEmpty
               ? device.platformName
               : _historyDevices
-                    .firstWhere(
-                      (item) => item.id == device.remoteId.str,
-                      orElse: () => _BleDevice(
-                        id: device.remoteId.str,
-                        name: '未知设备',
-                        rssi: 0,
-                      ),
-                    )
-                    .name;
+                    .where((item) => item.id == device.remoteId.str)
+                    .firstOrNull
+                    ?.name;
         } else {
           connectedDeviceId = null;
           connectedDeviceName = null;
@@ -1018,6 +1012,8 @@ class _DeviceTile extends StatelessWidget {
                 Text(
                   unavailable
                       ? '未发现'
+                      : connected
+                      ? '已连接 · ${device.rssi} dBm'
                       : device.isHistory
                       ? '${device.isLast ? '上次连接' : '历史设备'} · ${device.rssi} dBm'
                       : '蓝牙设备 · ${device.rssi} dBm',
