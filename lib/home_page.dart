@@ -56,16 +56,10 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
 
     setState(() {
-      connectedDeviceId = connectedDevice?.remoteId.str;
-
-      connectedDeviceName = connectedDevice == null
-          ? null
-          : connectedDevice.platformName.isNotEmpty
-          ? connectedDevice.platformName
-          : _historyDevices
-                .where((item) => item.id == connectedDevice.remoteId.str)
-                .firstOrNull
-                ?.name;
+      connectedDeviceId = connectedDevice?.id;
+      connectedDeviceName = connectedDevice?.name.isNotEmpty == true
+          ? connectedDevice!.name
+          : null;
     });
 
     if (!mounted) return;
@@ -134,25 +128,6 @@ class _HomePageState extends State<HomePage> {
             Future<void> connectDevice(BleDevice device) async {
               if (isConnecting || isScanning) return;
 
-              final bleDevice = device.bluetoothDevice;
-
-              if (bleDevice == null) {
-                await showCupertinoDialog<void>(
-                  context: dialogContext,
-                  builder: (context) => CupertinoAlertDialog(
-                    title: const Text('无法连接'),
-                    content: const Text('未获取到有效的蓝牙设备，请重新搜索。'),
-                    actions: [
-                      CupertinoDialogAction(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('确定'),
-                      ),
-                    ],
-                  ),
-                );
-                return;
-              }
-
               setDialogState(() {
                 isConnecting = true;
                 connectingDeviceId = device.id;
@@ -163,11 +138,11 @@ class _HomePageState extends State<HomePage> {
 
                 if (!mounted || !dialogContext.mounted) return;
 
-                debugPrint('BLE connected: ${bleDevice.remoteId}');
-                debugPrint('Discovered ${services.length} BLE services.');
+                debugPrint('BLE connected: ${device.id}');
+                debugPrint('Discovered $services BLE services.');
 
                 setState(() {
-                  connectedDeviceId = bleDevice.remoteId.str;
+                  connectedDeviceId = device.id;
                   connectedDeviceName = device.name.isEmpty
                       ? '未知设备'
                       : device.name;

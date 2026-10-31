@@ -14,6 +14,8 @@ class BleManager {
 
   final List<BleDevice> historyDevices = [];
 
+  final Map<String, BluetoothDevice> _devicesById = {};
+
   bool isHistoryLoaded = false;
 
   Future<void>? _historyLoadFuture;
@@ -98,46 +100,49 @@ class BleManager {
   }
 
   /// Refresh history entries using devices currently connected by the system.
-  Future<BluetoothDevice?> loadConnectedDevices() async {
+  Future<BleDevice?> loadConnectedDevices() async {
     try {
       final devices = FlutterBluePlus.connectedDevices;
 
       for (final item in historyDevices) {
         item.isFound = false;
-        item.bluetoothDevice = null;
       }
+
+      BleDevice? firstConnected;
 
       for (final device in devices) {
         final id = device.remoteId.str;
         final index = historyDevices.indexWhere((item) => item.id == id);
 
-        if (index < 0) continue;
+        _devicesById[id] = device;
 
-        final oldDevice = historyDevices.removeAt(index);
+        final oldDevice = index >= 0 ? historyDevices[index] : null;
+
+        final connectedDevice = BleDevice(
+          id: id,
+          name: device.platformName.isNotEmpty
+              ? device.platformName
+              : oldDevice?.name ?? '',
+          rssi: oldDevice?.rssi ?? 0,
+          isHistory: true,
+          isLast: true,
+          isFound: true,
+        );
+
+        firstConnected ??= connectedDevice;
+
+        historyDevices.removeWhere((item) => item.id == id);
 
         for (final item in historyDevices) {
           item.isLast = false;
         }
 
-        historyDevices.insert(
-          0,
-          BleDevice(
-            id: id,
-            name: device.platformName.isNotEmpty
-                ? device.platformName
-                : oldDevice.name,
-            rssi: oldDevice.rssi,
-            isHistory: true,
-            isLast: true,
-            isFound: true,
-            bluetoothDevice: device,
-          ),
-        );
+        historyDevices.insert(0, connectedDevice);
       }
 
       await saveHistory();
 
-      return devices.isNotEmpty ? devices.first : null;
+      return firstConnected;
     } catch (error) {
       debugPrint('Failed to load connected devices: $error');
       return null;
@@ -175,11 +180,12 @@ class BleManager {
         final advertisedName = result.advertisementData.advName;
         final platformName = result.device.platformName;
 
+        _devicesById[id] = result.device;
+
         devices[id] = BleDevice(
           id: id,
           name: advertisedName.isNotEmpty ? advertisedName : platformName,
           rssi: result.rssi,
-          bluetoothDevice: result.device,
         );
       }
 
@@ -220,8 +226,8 @@ class BleManager {
   }
 
   /// Connect to a BLE device and discover its services.
-  Future<List<BluetoothService>> connectDevice(BleDevice device) async {
-    final bluetoothDevice = device.bluetoothDevice;
+  Future<int> connectDevice(BleDevice device) async {
+    final bluetoothDevice = _devicesById[device.id];
 
     if (bluetoothDevice == null) {
       throw StateError('The Bluetooth device is unavailable.');
@@ -234,7 +240,9 @@ class BleManager {
       timeout: const Duration(seconds: 15),
     );
 
-    return bluetoothDevice.discoverServices();
+    final services = await bluetoothDevice.discoverServices();
+
+    return services.length;
   }
 
   /// Add or update a connected device in history.
@@ -254,7 +262,6 @@ class BleManager {
         isHistory: true,
         isLast: true,
         isFound: true,
-        bluetoothDevice: device.bluetoothDevice,
       ),
     );
 
@@ -284,7 +291,6 @@ class BleManager {
 
       if (found != null) {
         history.rssi = found.rssi;
-        history.bluetoothDevice = found.bluetoothDevice;
 
         if (found.name.isNotEmpty) {
           history.name = found.name;
