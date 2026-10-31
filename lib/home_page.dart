@@ -1,16 +1,15 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+//For the page part.
 import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
+//For the ui part.
 import './models/ble_device.dart';
 import './widgets/device_tile.dart';
 import './widgets/section_title.dart';
 import './widgets/slide_action.dart';
+//For the functionality part.
+import 'services/ble_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,25 +31,42 @@ class _HomePageState extends State<HomePage> {
   bool isConnecting = false;
   bool isScanning = false;
 
-  bool _isHistoryLoaded = false;
-
-  final List<BleDevice> _historyDevices = [];
-
   final List<BleDevice> _nearbyDevices = [];
+
+  final BleManager _bleManager = BleManager();
+
+  List<BleDevice> get _historyDevices => _bleManager.historyDevices;
+
+  bool get _isHistoryLoaded => _bleManager.isHistoryLoaded;
 
   Future<void> _showDeviceDialog() async {
     if (!_isHistoryLoaded) {
-      await _loadHistoryDevices();
+      await _bleManager.loadHistory();
     }
 
     if (!mounted) return;
 
-    await _initializeBluetooth();
+    await _bleManager.initializeBluetooth();
 
     if (!mounted) return;
 
     // Check connected devices before opening the dialog.
-    await _loadConnectedDevices();
+    final connectedDevice = await _bleManager.loadConnectedDevices();
+
+    if (!mounted) return;
+
+    setState(() {
+      connectedDeviceId = connectedDevice?.remoteId.str;
+
+      connectedDeviceName = connectedDevice == null
+          ? null
+          : connectedDevice.platformName.isNotEmpty
+          ? connectedDevice.platformName
+          : _historyDevices
+                .where((item) => item.id == connectedDevice.remoteId.str)
+                .firstOrNull
+                ?.name;
+    });
 
     if (!mounted) return;
 
@@ -68,99 +84,31 @@ class _HomePageState extends State<HomePage> {
                 _nearbyDevices.clear();
               });
 
-              StreamSubscription<List<ScanResult>>? resultsSubscription;
-              StreamSubscription<bool>? scanStateSubscription;
-              var scanStarted = false;
-
               try {
-                final supported = await FlutterBluePlus.isSupported;
-
-                if (!supported) {
-                  throw Exception('Bluetooth is not supported on this device.');
-                }
-
-                final adapterState = await FlutterBluePlus.adapterState
-                    .firstWhere(
-                      (state) => state != BluetoothAdapterState.unknown,
-                    )
-                    .timeout(const Duration(seconds: 5));
-
-                if (adapterState != BluetoothAdapterState.on) {
-                  throw Exception('Bluetooth is not turned on: $adapterState');
-                }
-
-                resultsSubscription = FlutterBluePlus.onScanResults.listen(
-                  (results) {
+                await _bleManager.startScan(
+                  onResults: (devices) {
                     if (!mounted || !dialogContext.mounted) return;
-
-                    final devices = <String, BleDevice>{};
-
-                    for (final result in results) {
-                      final id = result.device.remoteId.str;
-                      final advertisedName = result.advertisementData.advName;
-                      final platformName = result.device.platformName;
-
-                      final name = advertisedName.isNotEmpty
-                          ? advertisedName
-                          : platformName;
-
-                      devices[id] = BleDevice(
-                        id: id,
-                        name: name,
-                        rssi: result.rssi,
-                        bluetoothDevice: result.device,
-                      );
-                    }
 
                     setDialogState(() {
                       _nearbyDevices
                         ..clear()
-                        ..addAll(devices.values);
+                        ..addAll(devices);
 
-                      _removeDuplicateDevices();
-
-                      // Hide the loading animation as soon as the first result arrives.
-                      if (devices.isNotEmpty) {
-                        isScanning = false;
-                      }
+                      _bleManager.updateHistoryFromScan(
+                        _nearbyDevices,
+                        connectedDeviceId,
+                      );
                     });
                   },
-                  onError: (Object error) {
+                  onScanningChanged: (scanning) {
                     if (!mounted || !dialogContext.mounted) return;
 
                     setDialogState(() {
-                      isScanning = false;
+                      isScanning = scanning;
                     });
                   },
                 );
-
-                scanStateSubscription = FlutterBluePlus.isScanning.listen((
-                  scanning,
-                ) {
-                  if (!mounted || !dialogContext.mounted) return;
-
-                  if (scanning) {
-                    scanStarted = true;
-                    return;
-                  }
-
-                  if (scanStarted) {
-                    setDialogState(() {
-                      isScanning = false;
-                    });
-
-                    unawaited(resultsSubscription?.cancel());
-                    unawaited(scanStateSubscription?.cancel());
-                  }
-                });
-
-                await FlutterBluePlus.startScan(
-                  timeout: const Duration(seconds: 12),
-                );
               } catch (error) {
-                await resultsSubscription?.cancel();
-                await scanStateSubscription?.cancel();
-
                 if (!mounted || !dialogContext.mounted) return;
 
                 setDialogState(() {
@@ -211,18 +159,7 @@ class _HomePageState extends State<HomePage> {
               });
 
               try {
-                if (FlutterBluePlus.isScanningNow) {
-                  await FlutterBluePlus.stopScan();
-                }
-
-                await bleDevice.connect(
-                  license: License.nonprofit,
-                  timeout: const Duration(seconds: 15),
-                );
-
-                if (!mounted || !dialogContext.mounted) return;
-
-                final services = await bleDevice.discoverServices();
+                final services = await _bleManager.connectDevice(device);
 
                 if (!mounted || !dialogContext.mounted) return;
 
@@ -234,26 +171,11 @@ class _HomePageState extends State<HomePage> {
                   connectedDeviceName = device.name.isEmpty
                       ? '未知设备'
                       : device.name;
-
-                  _historyDevices.removeWhere((item) => item.id == device.id);
-
-                  for (final item in _historyDevices) {
-                    item.isLast = false;
-                  }
-
-                  _historyDevices.insert(
-                    0,
-                    BleDevice(
-                      id: bleDevice.remoteId.str,
-                      name: device.name,
-                      rssi: device.rssi,
-                      isHistory: true,
-                      isLast: true,
-                      isFound: true,
-                      bluetoothDevice: bleDevice,
-                    ),
-                  );
                 });
+
+                await _bleManager.addToHistory(device);
+
+                if (!mounted || !dialogContext.mounted) return;
 
                 setDialogState(() {
                   isConnecting = false;
@@ -261,8 +183,6 @@ class _HomePageState extends State<HomePage> {
                 });
 
                 Navigator.of(dialogContext).pop();
-
-                await _saveHistoryDevices();
               } catch (error) {
                 debugPrint('BLE connection failed: $error');
 
@@ -394,9 +314,7 @@ class _HomePageState extends State<HomePage> {
                   onPressed: isConnecting
                       ? null
                       : () async {
-                          if (FlutterBluePlus.isScanningNow) {
-                            await FlutterBluePlus.stopScan();
-                          }
+                          await _bleManager.stopScan();
 
                           if (dialogContext.mounted) {
                             Navigator.of(dialogContext).pop();
@@ -410,44 +328,6 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-  }
-
-  void _removeDuplicateDevices() {
-    final Map<String, BleDevice> nearbyById = {
-      for (final device in _nearbyDevices) device.id: device,
-    };
-
-    for (final history in _historyDevices) {
-      final found = nearbyById[history.id];
-
-      history.isFound = found != null || history.id == connectedDeviceId;
-
-      if (found != null) {
-        history.rssi = found.rssi;
-        history.bluetoothDevice = found.bluetoothDevice;
-
-        if (found.name.isNotEmpty) {
-          history.name = found.name;
-        }
-      }
-    }
-  }
-
-  Future<void> _initializeBluetooth() async {
-    try {
-      final supported = await FlutterBluePlus.isSupported;
-
-      if (!supported) {
-        debugPrint('BLE is not supported.');
-        return;
-      }
-
-      await FlutterBluePlus.adapterState
-          .firstWhere((state) => state != BluetoothAdapterState.unknown)
-          .timeout(const Duration(seconds: 5));
-    } catch (error) {
-      debugPrint('BLE initialization failed: $error');
-    }
   }
 
   Future<void> _showUnavailableDeviceActions(
@@ -505,148 +385,24 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    setState(() {
-      _historyDevices.removeWhere((item) => item.id == device.id);
+    await _bleManager.removeFromHistory(device.id);
 
+    if (!mounted || !dialogContext.mounted) return;
+
+    setState(() {
       if (connectedDeviceId == device.id) {
         connectedDeviceId = null;
         connectedDeviceName = null;
       }
     });
 
-    await _saveHistoryDevices();
-
     refreshDialog();
   }
-
-  static const String _historyStorageKey = 'ble_device_history';
-
-  final SharedPreferencesAsync _preferences = SharedPreferencesAsync();
 
   @override
   void initState() {
     super.initState();
-    _loadHistoryDevices();
-  }
-
-  Future<void> _loadHistoryDevices() async {
-    try {
-      final jsonString = await _preferences.getString(_historyStorageKey);
-
-      if (jsonString == null || jsonString.isEmpty) {
-        return;
-      }
-
-      final List<dynamic> records = jsonDecode(jsonString) as List<dynamic>;
-
-      final devices = records.map((record) {
-        final item = Map<String, dynamic>.from(record as Map);
-
-        return BleDevice(
-          id: item['id'] as String,
-          name: item['name'] as String? ?? '',
-          rssi: item['rssi'] as int? ?? 0,
-          isHistory: true,
-          isLast: item['isLast'] as bool? ?? false,
-          isFound: false,
-        );
-      }).toList();
-
-      if (!mounted) return;
-
-      setState(() {
-        _historyDevices
-          ..clear()
-          ..addAll(devices);
-      });
-    } catch (error) {
-      debugPrint('Failed to load BLE device history: $error');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isHistoryLoaded = true;
-        });
-      } else {
-        _isHistoryLoaded = true;
-      }
-    }
-  }
-
-  Future<void> _saveHistoryDevices() async {
-    try {
-      final records = _historyDevices.map((device) {
-        return <String, dynamic>{
-          'id': device.id,
-          'name': device.name,
-          'rssi': device.rssi,
-          'isLast': device.isLast,
-        };
-      }).toList();
-
-      await _preferences.setString(_historyStorageKey, jsonEncode(records));
-    } catch (error) {
-      debugPrint('Failed to save BLE device history: $error');
-    }
-  }
-
-  Future<void> _loadConnectedDevices() async {
-    try {
-      final devices = FlutterBluePlus.connectedDevices;
-
-      if (!mounted) return;
-
-      setState(() {
-        for (final item in _historyDevices) {
-          item.isFound = false;
-          item.bluetoothDevice = null;
-        }
-
-        for (final device in devices) {
-          final id = device.remoteId.str;
-
-          final index = _historyDevices.indexWhere((item) => item.id == id);
-
-          if (index < 0) continue;
-
-          final oldDevice = _historyDevices.removeAt(index);
-
-          _historyDevices.insert(
-            0,
-            BleDevice(
-              id: id,
-              name: device.platformName.isNotEmpty
-                  ? device.platformName
-                  : oldDevice.name,
-              rssi: oldDevice.rssi,
-              isHistory: true,
-              isLast: true,
-              isFound: true,
-              bluetoothDevice: device,
-            ),
-          );
-        }
-
-        if (devices.isNotEmpty) {
-          final device = devices.first;
-
-          connectedDeviceId = device.remoteId.str;
-
-          connectedDeviceName = device.platformName.isNotEmpty
-              ? device.platformName
-              : _historyDevices
-                    .where((item) => item.id == device.remoteId.str)
-                    .firstOrNull
-                    ?.name;
-        } else {
-          connectedDeviceId = null;
-          connectedDeviceName = null;
-        }
-      });
-
-      await _saveHistoryDevices();
-    } catch (error) {
-      debugPrint('Failed to load connected devices: $error');
-    }
+    _bleManager.loadHistory();
   }
 
   @override
