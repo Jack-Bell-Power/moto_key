@@ -7,6 +7,10 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
+import './models/ble_device.dart';
+import './widgets/device_tile.dart';
+import './widgets/section_title.dart';
+import './widgets/slide_action.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,7 +24,6 @@ class _HomePageState extends State<HomePage> {
   bool isSetLock = false;
   bool isFindCar = false;
   bool isPowerOn = false;
-  bool isSitBucket = false;
 
   String? connectedDeviceId;
   String? connectedDeviceName;
@@ -31,9 +34,9 @@ class _HomePageState extends State<HomePage> {
 
   bool _isHistoryLoaded = false;
 
-  final List<_BleDevice> _historyDevices = [];
+  final List<BleDevice> _historyDevices = [];
 
-  final List<_BleDevice> _nearbyDevices = [];
+  final List<BleDevice> _nearbyDevices = [];
 
   Future<void> _showDeviceDialog() async {
     if (!_isHistoryLoaded) {
@@ -90,7 +93,7 @@ class _HomePageState extends State<HomePage> {
                   (results) {
                     if (!mounted || !dialogContext.mounted) return;
 
-                    final devices = <String, _BleDevice>{};
+                    final devices = <String, BleDevice>{};
 
                     for (final result in results) {
                       final id = result.device.remoteId.str;
@@ -101,7 +104,7 @@ class _HomePageState extends State<HomePage> {
                           ? advertisedName
                           : platformName;
 
-                      devices[id] = _BleDevice(
+                      devices[id] = BleDevice(
                         id: id,
                         name: name,
                         rssi: result.rssi,
@@ -180,7 +183,7 @@ class _HomePageState extends State<HomePage> {
               }
             }
 
-            Future<void> connectDevice(_BleDevice device) async {
+            Future<void> connectDevice(BleDevice device) async {
               if (isConnecting || isScanning) return;
 
               final bleDevice = device.bluetoothDevice;
@@ -240,7 +243,7 @@ class _HomePageState extends State<HomePage> {
 
                   _historyDevices.insert(
                     0,
-                    _BleDevice(
+                    BleDevice(
                       id: bleDevice.remoteId.str,
                       name: device.name,
                       rssi: device.rssi,
@@ -316,10 +319,10 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 20),
                     if (_historyDevices.isNotEmpty) ...[
-                      const _SectionTitle(title: '连接过的设备'),
+                      const SectionTitle(title: '连接过的设备'),
                       const SizedBox(height: 8),
                       ..._historyDevices.map(
-                        (device) => _DeviceTile(
+                        (device) => DeviceTile(
                           device: device,
                           connected: connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
@@ -339,7 +342,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(height: 16),
                     ],
-                    const _SectionTitle(title: '新发现的设备'),
+                    const SectionTitle(title: '新发现的设备'),
                     const SizedBox(height: 8),
                     if (isScanning)
                       const Padding(
@@ -368,7 +371,7 @@ class _HomePageState extends State<HomePage> {
                       )
                     else
                       ...visibleNearby.map(
-                        (device) => _DeviceTile(
+                        (device) => DeviceTile(
                           device: device,
                           connected: connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
@@ -410,7 +413,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _removeDuplicateDevices() {
-    final Map<String, _BleDevice> nearbyById = {
+    final Map<String, BleDevice> nearbyById = {
       for (final device in _nearbyDevices) device.id: device,
     };
 
@@ -449,7 +452,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _showUnavailableDeviceActions(
     BuildContext dialogContext,
-    _BleDevice device,
+    BleDevice device,
     VoidCallback refreshDialog,
   ) async {
     final action = await showCupertinoModalPopup<String>(
@@ -539,7 +542,7 @@ class _HomePageState extends State<HomePage> {
       final devices = records.map((record) {
         final item = Map<String, dynamic>.from(record as Map);
 
-        return _BleDevice(
+        return BleDevice(
           id: item['id'] as String,
           name: item['name'] as String? ?? '',
           rssi: item['rssi'] as int? ?? 0,
@@ -609,7 +612,7 @@ class _HomePageState extends State<HomePage> {
 
           _historyDevices.insert(
             0,
-            _BleDevice(
+            BleDevice(
               id: id,
               name: device.platformName.isNotEmpty
                   ? device.platformName
@@ -912,269 +915,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BleDevice {
-  _BleDevice({
-    required this.id,
-    required this.name,
-    required this.rssi,
-    this.isHistory = false,
-    this.isLast = false,
-    this.isFound = true,
-    this.bluetoothDevice,
-  });
-
-  final String id;
-  String name;
-  int rssi;
-  final bool isHistory;
-  bool isLast;
-  bool isFound;
-  BluetoothDevice? bluetoothDevice;
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF6B7280),
-        ),
-      ),
-    );
-  }
-}
-
-class _DeviceTile extends StatelessWidget {
-  const _DeviceTile({
-    required this.device,
-    required this.connected,
-    required this.connecting,
-    required this.disabled,
-    required this.onTap,
-  });
-
-  final _BleDevice device;
-  final bool connected;
-  final bool connecting;
-  final bool disabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool unavailable = device.isHistory && !device.isFound;
-
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      onPressed: disabled ? null : onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF2FF),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: const Icon(
-              CupertinoIcons.bluetooth,
-              size: 21,
-              color: Color(0xFF3478F6),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  device.name.isEmpty ? '未知设备' : device.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF222222),
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  unavailable
-                      ? '未发现'
-                      : connected
-                      ? '已连接 · ${device.rssi} dBm'
-                      : device.isHistory
-                      ? '${device.isLast ? '上次连接' : '历史设备'} · ${device.rssi} dBm'
-                      : '蓝牙设备 · ${device.rssi} dBm',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: unavailable
-                        ? CupertinoColors.systemGrey2
-                        : CupertinoColors.systemGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          if (connecting)
-            const CupertinoActivityIndicator()
-          else if (connected)
-            const Icon(
-              CupertinoIcons.checkmark_circle_fill,
-              color: Color(0xFF3478F6),
-              size: 22,
-            )
-          else
-            const Icon(
-              CupertinoIcons.chevron_right,
-              color: Color(0xFF9CA3AF),
-              size: 17,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class SlideAction extends StatefulWidget {
-  const SlideAction({
-    super.key,
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.onCompleted,
-  });
-
-  final String title;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onCompleted;
-
-  @override
-  State<SlideAction> createState() => _SlideActionState();
-}
-
-class _SlideActionState extends State<SlideAction> {
-  bool _isOn = false;
-  double _dragOffset = 0;
-
-  static const double _height = 48;
-  static const double _padding = 4;
-  static const double _thumbSize = _height - _padding * 2;
-
-  static const Color _lightBlue = Color(0xFFF0F5FF);
-  static const Color _red = Color(0xFFFF3B30);
-  static const Color _lightRed = Color(0xFFFFEDEC);
-
-  void _onDragUpdate(DragUpdateDetails details, double maxOffset) {
-    setState(() {
-      _dragOffset = (_dragOffset + details.delta.dx)
-          .clamp(0.0, maxOffset)
-          .toDouble();
-    });
-  }
-
-  void _onDragEnd(double maxOffset) {
-    final bool oldState = _isOn;
-    final double progress = maxOffset <= 0 ? 0 : _dragOffset / maxOffset;
-
-    setState(() {
-      if (progress >= 0.75) {
-        _isOn = true;
-      } else if (progress <= 0.25) {
-        _isOn = false;
-      }
-
-      _dragOffset = _isOn ? maxOffset : 0;
-    });
-
-    if (oldState != _isOn) {
-      widget.onCompleted();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant SlideAction oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    final bool newIsOn = widget.title.contains('关闭车辆');
-
-    if (newIsOn != _isOn) {
-      _isOn = newIsOn;
-      _dragOffset = 0;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double maxOffset =
-            (constraints.maxWidth - _thumbSize - _padding * 2)
-                .clamp(0.0, double.infinity)
-                .toDouble();
-
-        final double dragOffset = _dragOffset.clamp(0.0, maxOffset).toDouble();
-
-        final Color activeColor = _isOn ? _red : widget.color;
-        final Color trackColor = _isOn ? _lightRed : _lightBlue;
-
-        return Container(
-          height: _height,
-          decoration: BoxDecoration(
-            color: trackColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Stack(
-            children: [
-              Center(
-                child: Text(
-                  widget.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: activeColor,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: _padding + dragOffset,
-                top: _padding,
-                child: GestureDetector(
-                  onHorizontalDragUpdate: (details) =>
-                      _onDragUpdate(details, maxOffset),
-                  onHorizontalDragEnd: (_) => _onDragEnd(maxOffset),
-                  child: Container(
-                    width: _thumbSize,
-                    height: _thumbSize,
-                    decoration: BoxDecoration(
-                      color: activeColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      widget.icon,
-                      color: CupertinoColors.white,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
