@@ -241,23 +241,30 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
                     if (isScanning)
                       const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
+                        padding: EdgeInsets.symmetric(vertical: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             CupertinoActivityIndicator(),
                             SizedBox(width: 8),
-                            Text('正在搜索设备...', style: TextStyle(fontSize: 13)),
+                            Text(
+                              '正在搜索设备...',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: CupertinoColors.systemGrey,
+                              ),
+                            ),
                           ],
                         ),
-                      )
-                    else if (visibleNearby.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                      ),
+
+                    if (visibleNearby.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Center(
                           child: Text(
-                            '暂未发现新设备',
-                            style: TextStyle(
+                            isScanning ? '正在等待发现设备...' : '暂未发现新设备',
+                            style: const TextStyle(
                               fontSize: 13,
                               color: CupertinoColors.systemGrey,
                             ),

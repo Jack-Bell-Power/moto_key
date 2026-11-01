@@ -1,5 +1,6 @@
-import 'dart:convert';
+
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ class BleManager {
   final List<BleDevice> historyDevices = [];
 
   final Map<String, BluetoothDevice> _devicesById = {};
+  final Map<String, BleDevice> _scanResultsById = {};
 
   bool isHistoryLoaded = false;
 
@@ -93,7 +95,10 @@ class BleManager {
         };
       }).toList();
 
-      await _preferences.setString(_historyStorageKey, jsonEncode(records));
+      await _preferences.setString(
+        _historyStorageKey,
+        jsonEncode(records),
+      );
     } catch (error) {
       debugPrint('Failed to save BLE device history: $error');
     }
@@ -112,7 +117,9 @@ class BleManager {
 
       for (final device in devices) {
         final id = device.remoteId.str;
-        final index = historyDevices.indexWhere((item) => item.id == id);
+        final index = historyDevices.indexWhere(
+          (item) => item.id == id,
+        );
 
         _devicesById[id] = device;
 
@@ -168,43 +175,88 @@ class BleManager {
       throw Exception('Bluetooth is not turned on: $adapterState');
     }
 
+    if (FlutterBluePlus.isScanningNow) {
+      await FlutterBluePlus.stopScan();
+    }
+
     await _cancelScanSubscriptions();
 
+    _scanResultsById.clear();
     _scanStarted = false;
 
-    _scanResultsSubscription = FlutterBluePlus.onScanResults.listen((results) {
-      final devices = <String, BleDevice>{};
+    // Notify the UI immediately.
+    onScanningChanged(true);
 
-      for (final result in results) {
-        final id = result.device.remoteId.str;
-        final advertisedName = result.advertisementData.advName;
-        final platformName = result.device.platformName;
+    _scanResultsSubscription = FlutterBluePlus.onScanResults.listen(
+      (results) {
+        for (final result in results) {
+          final id = result.device.remoteId.str;
 
-        _devicesById[id] = result.device;
+          final advertisedName = result.advertisementData.advName;
+          final platformName = result.device.platformName;
 
-        devices[id] = BleDevice(
-          id: id,
-          name: advertisedName.isNotEmpty ? advertisedName : platformName,
-          rssi: result.rssi,
+          final previous = _scanResultsById[id];
+
+          _devicesById[id] = result.device;
+
+          final name = advertisedName.isNotEmpty
+              ? advertisedName
+              : platformName.isNotEmpty
+                  ? platformName
+                  : previous?.name ?? '';
+
+          // Update existing devices or insert newly discovered devices.
+          _scanResultsById[id] = BleDevice(
+            id: id,
+            name: name,
+            rssi: result.rssi,
+            isHistory: false,
+            isLast: false,
+            isFound: true,
+          );
+        }
+
+        // Always return the complete list discovered so far.
+        onResults(
+          List<BleDevice>.unmodifiable(
+            _scanResultsById.values.toList(),
+          ),
         );
-      }
+      },
+      onError: (Object error) {
+        debugPrint('BLE scan results error: $error');
+      },
+    );
 
-      onResults(devices.values.toList());
-    });
+    _scanStateSubscription = FlutterBluePlus.isScanning.listen(
+      (scanning) {
+        if (scanning) {
+          _scanStarted = true;
+          return;
+        }
 
-    _scanStateSubscription = FlutterBluePlus.isScanning.listen((scanning) {
-      if (scanning) {
-        _scanStarted = true;
-        return;
-      }
+        if (_scanStarted) {
+          _scanStarted = false;
+          onScanningChanged(false);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('BLE scan state error: $error');
+      },
+    );
 
-      if (_scanStarted) {
-        onScanningChanged(false);
-        _cancelScanSubscriptions();
-      }
-    });
+    try {
+      await FlutterBluePlus.startScan(
+        timeout: const Duration(seconds: 12),
+      );
+    } catch (error) {
+      _scanStarted = false;
+      onScanningChanged(false);
 
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 12));
+      await _cancelScanSubscriptions();
+
+      rethrow;
+    }
   }
 
   /// Stop the current BLE scan.
@@ -212,6 +264,8 @@ class BleManager {
     if (FlutterBluePlus.isScanningNow) {
       await FlutterBluePlus.stopScan();
     }
+
+    _scanStarted = false;
 
     await _cancelScanSubscriptions();
   }
