@@ -239,24 +239,6 @@ class _HomePageState extends State<HomePage> {
                     ],
                     const SectionTitle(title: '新发现的设备'),
                     const SizedBox(height: 8),
-                    if (isScanning)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CupertinoActivityIndicator(),
-                            SizedBox(width: 8),
-                            Text(
-                              '正在搜索设备...',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: CupertinoColors.systemGrey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
 
                     if (visibleNearby.isEmpty)
                       Padding(
@@ -281,6 +263,26 @@ class _HomePageState extends State<HomePage> {
                           onTap: () => connectDevice(device),
                         ),
                       ),
+
+                    if (isScanning)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CupertinoActivityIndicator(),
+                            SizedBox(width: 8),
+                            Text(
+                              '正在搜索设备...',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: CupertinoColors.systemGrey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                     const SizedBox(height: 8),
                   ],
                 ),
