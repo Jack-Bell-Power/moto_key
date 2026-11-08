@@ -236,14 +236,18 @@ class BleManager {
 
           final previous = _scanResultsById[id];
 
-          _devicesById[id] = result.device;
-
           final name = advertisedName.isNotEmpty
               ? advertisedName
               : platformName.isNotEmpty
               ? platformName
               : previous?.name ?? '';
 
+          // Only accept connectable devices with names containing DX.
+          if (!name.toUpperCase().contains('DX') ||
+              !result.advertisementData.connectable) {
+            continue;
+          }
+          _devicesById[id] = result.device;
           // Update existing devices or insert newly discovered devices.
           _scanResultsById[id] = BleDevice(
             id: id,
@@ -283,7 +287,10 @@ class BleManager {
     );
 
     try {
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 12));
+      await FlutterBluePlus.startScan(
+        withServices: [Guid(_serviceUuid)],
+        timeout: const Duration(seconds: 12),
+      );
     } catch (error) {
       _scanStarted = false;
       onScanningChanged(false);
