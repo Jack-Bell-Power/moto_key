@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -26,6 +25,51 @@ class BleManager {
   StreamSubscription<bool>? _scanStateSubscription;
 
   bool _scanStarted = false;
+
+  static const String _serviceUuid = '0000FEE5-0000-1000-8000-00805F9B34FB';
+
+  static const String _writeCharacteristicUuid =
+      '0000FEB5-0000-1000-8000-00805F9B34FB';
+
+  static const String _notifyCharacteristicUuid =
+      '0000FEB6-0000-1000-8000-00805F9B34FB';
+
+  BluetoothDevice? _connectedDevice;
+
+  BluetoothCharacteristic? _writeCharacteristic;
+  BluetoothCharacteristic? _notifyCharacteristic;
+
+  StreamSubscription<BluetoothConnectionState>? _connectionStateSubscription;
+
+  StreamSubscription<List<int>>? _notifySubscription;
+
+  final StreamController<BluetoothConnectionState> _connectionStateController =
+      StreamController<BluetoothConnectionState>.broadcast();
+
+  final StreamController<List<int>> _receivedDataController =
+      StreamController<List<int>>.broadcast();
+
+  /// Listen to connection state changes.
+  Stream<BluetoothConnectionState> get connectionStateStream =>
+      _connectionStateController.stream;
+
+  /// Listen to received BLE data.
+  Stream<List<int>> get receivedDataStream => _receivedDataController.stream;
+
+  /// Get the currently selected device.
+  BluetoothDevice? get connectedDevice => _connectedDevice;
+
+  /// Check whether the selected device is connected.
+  bool get isConnected => _connectedDevice?.isConnected ?? false;
+
+  /// Get the current device ID.
+  String? get connectedDeviceId => _connectedDevice?.remoteId.str;
+
+  /// Check whether the communication characteristics are ready.
+  bool get isCommunicationReady =>
+      isConnected &&
+      _writeCharacteristic != null &&
+      _notifyCharacteristic != null;
 
   /// Initialize the Bluetooth adapter.
   Future<void> initializeBluetooth() async {
@@ -95,10 +139,7 @@ class BleManager {
         };
       }).toList();
 
-      await _preferences.setString(
-        _historyStorageKey,
-        jsonEncode(records),
-      );
+      await _preferences.setString(_historyStorageKey, jsonEncode(records));
     } catch (error) {
       debugPrint('Failed to save BLE device history: $error');
     }
@@ -117,9 +158,7 @@ class BleManager {
 
       for (final device in devices) {
         final id = device.remoteId.str;
-        final index = historyDevices.indexWhere(
-          (item) => item.id == id,
-        );
+        final index = historyDevices.indexWhere((item) => item.id == id);
 
         _devicesById[id] = device;
 
@@ -202,8 +241,8 @@ class BleManager {
           final name = advertisedName.isNotEmpty
               ? advertisedName
               : platformName.isNotEmpty
-                  ? platformName
-                  : previous?.name ?? '';
+              ? platformName
+              : previous?.name ?? '';
 
           // Update existing devices or insert newly discovered devices.
           _scanResultsById[id] = BleDevice(
@@ -218,9 +257,7 @@ class BleManager {
 
         // Always return the complete list discovered so far.
         onResults(
-          List<BleDevice>.unmodifiable(
-            _scanResultsById.values.toList(),
-          ),
+          List<BleDevice>.unmodifiable(_scanResultsById.values.toList()),
         );
       },
       onError: (Object error) {
@@ -246,9 +283,7 @@ class BleManager {
     );
 
     try {
-      await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 12),
-      );
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 12));
     } catch (error) {
       _scanStarted = false;
       onScanningChanged(false);
@@ -279,7 +314,7 @@ class BleManager {
     _scanStateSubscription = null;
   }
 
-  /// Connect to a BLE device and discover its services.
+  /// Connect to a BLE device and initialize communication.
   Future<int> connectDevice(BleDevice device) async {
     final bluetoothDevice = _devicesById[device.id];
 
@@ -289,14 +324,125 @@ class BleManager {
 
     await stopScan();
 
-    await bluetoothDevice.connect(
-      license: License.nonprofit,
-      timeout: const Duration(seconds: 15),
+    final previousDevice = _connectedDevice;
+
+    if (previousDevice != null &&
+        previousDevice.remoteId != bluetoothDevice.remoteId &&
+        previousDevice.isConnected) {
+      await previousDevice.disconnect();
+    }
+
+    // Clean up previous connection listeners.
+    await _notifySubscription?.cancel();
+    await _connectionStateSubscription?.cancel();
+
+    _writeCharacteristic = null;
+    _notifyCharacteristic = null;
+
+    _connectedDevice = bluetoothDevice;
+
+    // Listen for connection state changes.
+    _connectionStateSubscription = bluetoothDevice.connectionState.listen(
+      _handleConnectionState,
+      onError: (Object error) {
+        debugPrint('BLE connection state error: $error');
+      },
     );
 
-    final services = await bluetoothDevice.discoverServices();
+    try {
+      // Establish the BLE connection.
+      await bluetoothDevice.connect(
+        license: License.nonprofit,
+        timeout: const Duration(seconds: 15),
+      );
 
-    return services.length;
+      // Discover services.
+      final services = await bluetoothDevice.discoverServices();
+
+      BluetoothService? targetService;
+
+      for (final service in services) {
+        debugPrint('BLE service UUID: ${service.uuid.str}');
+
+        if (_matchesUuid(service.uuid.str, _serviceUuid)) {
+          targetService = service;
+          break;
+        }
+      }
+
+      if (targetService == null) {
+        throw StateError('Required BLE service FEE5 was not found.');
+      }
+
+      // Find the write and notify characteristics.
+      for (final characteristic in targetService.characteristics) {
+        final uuid = characteristic.uuid.str;
+
+        debugPrint(
+          'BLE characteristic UUID: $uuid, '
+          'properties: ${characteristic.properties}',
+        );
+
+        if (_matchesUuid(uuid, _writeCharacteristicUuid) &&
+            characteristic.properties.write) {
+          _writeCharacteristic = characteristic;
+        }
+
+        if (_matchesUuid(uuid, _notifyCharacteristicUuid) &&
+            (characteristic.properties.notify ||
+                characteristic.properties.indicate)) {
+          _notifyCharacteristic = characteristic;
+        }
+      }
+
+      if (_writeCharacteristic == null) {
+        throw StateError('Write characteristic FEB5 was not found.');
+      }
+
+      if (_notifyCharacteristic == null) {
+        throw StateError('Notify characteristic FEB6 was not found.');
+      }
+
+      // Subscribe before enabling notifications.
+      _notifySubscription = _notifyCharacteristic!.onValueReceived.listen(
+        (value) {
+          _receivedDataController.add(List<int>.unmodifiable(value));
+        },
+        onError: (Object error) {
+          debugPrint('BLE notification error: $error');
+        },
+      );
+
+      // Enable notifications.
+      await _notifyCharacteristic!.setNotifyValue(true);
+
+      debugPrint('BLE communication initialized.');
+
+      return services.length;
+    } catch (error) {
+      debugPrint('BLE connection initialization failed: $error');
+
+      await _notifySubscription?.cancel();
+      _notifySubscription = null;
+
+      _writeCharacteristic = null;
+      _notifyCharacteristic = null;
+
+      await _connectionStateSubscription?.cancel();
+      _connectionStateSubscription = null;
+
+      _connectedDevice = null;
+
+      if (bluetoothDevice.isConnected) {
+        try {
+          await bluetoothDevice.disconnect();
+        } catch (disconnectError) {
+          debugPrint('BLE cleanup failed: $disconnectError');
+        }
+      }
+
+      rethrow;
+    }
   }
 
   /// Add or update a connected device in history.
@@ -351,5 +497,86 @@ class BleManager {
         }
       }
     }
+  }
+
+  /// Handle BLE connection state changes.
+  void _handleConnectionState(BluetoothConnectionState state) {
+    debugPrint('BLE connection state: $state');
+
+    _connectionStateController.add(state);
+
+    if (state == BluetoothConnectionState.disconnected) {
+      _notifySubscription?.cancel();
+      _notifySubscription = null;
+
+      _writeCharacteristic = null;
+      _notifyCharacteristic = null;
+
+      _connectedDevice = null;
+
+      debugPrint('BLE device disconnected.');
+    }
+  }
+
+  /// Disconnect the currently selected device.
+  Future<void> disconnectDevice() async {
+    final device = _connectedDevice;
+
+    if (device == null) {
+      return;
+    }
+
+    try {
+      await device.disconnect();
+    } catch (error) {
+      debugPrint('BLE disconnect failed: $error');
+      rethrow;
+    }
+  }
+
+  /// Write data to the vehicle.
+  Future<void> writeData(List<int> data) async {
+    final characteristic = _writeCharacteristic;
+
+    if (!isCommunicationReady || characteristic == null) {
+      throw StateError('BLE communication is not ready.');
+    }
+
+    await characteristic.write(data);
+  }
+
+  /// Release BLE resources.
+  Future<void> dispose() async {
+    await stopScan();
+
+    await _notifySubscription?.cancel();
+    await _connectionStateSubscription?.cancel();
+
+    final device = _connectedDevice;
+
+    _writeCharacteristic = null;
+    _notifyCharacteristic = null;
+    _connectedDevice = null;
+
+    if (device != null && device.isConnected) {
+      try {
+        await device.disconnect();
+      } catch (error) {
+        debugPrint('BLE dispose disconnect failed: $error');
+      }
+    }
+
+    await _connectionStateController.close();
+    await _receivedDataController.close();
+  }
+
+  /// Check whether a UUID contains the expected 16-bit UUID.
+  bool _matchesUuid(String actual, String expected) {
+    final shortUuid = expected
+        .replaceAll('-', '')
+        .substring(4, 8)
+        .toUpperCase();
+
+    return actual.toUpperCase().contains(shortUuid);
   }
 }
