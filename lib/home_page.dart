@@ -126,7 +126,7 @@ class _HomePageState extends State<HomePage> {
             }
 
             Future<void> connectDevice(BleDevice device) async {
-              if (isConnecting || isScanning) return;
+              if (isConnecting) return;
 
               setDialogState(() {
                 isConnecting = true;
@@ -221,7 +221,7 @@ class _HomePageState extends State<HomePage> {
                           device: device,
                           connected: connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
-                          disabled: isConnecting || isScanning,
+                          disabled: isConnecting,
                           onTap: () {
                             if (device.isFound) {
                               connectDevice(device);
@@ -259,7 +259,7 @@ class _HomePageState extends State<HomePage> {
                           device: device,
                           connected: connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
-                          disabled: isConnecting || isScanning,
+                          disabled: isConnecting,
                           onTap: () => connectDevice(device),
                         ),
                       ),
