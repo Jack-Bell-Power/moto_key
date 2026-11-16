@@ -50,20 +50,6 @@ class _HomePageState extends State<HomePage> {
 
     if (!mounted) return;
 
-    // Check connected devices before opening the dialog.
-    final connectedDevice = await _bleManager.loadConnectedDevices();
-
-    if (!mounted) return;
-
-    setState(() {
-      connectedDeviceId = connectedDevice?.id;
-      connectedDeviceName = connectedDevice?.name.isNotEmpty == true
-          ? connectedDevice!.name
-          : null;
-    });
-
-    if (!mounted) return;
-
     await showCupertinoDialog<void>(
       context: context,
       barrierDismissible: false,

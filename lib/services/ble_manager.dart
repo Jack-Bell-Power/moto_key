@@ -145,56 +145,6 @@ class BleManager {
     }
   }
 
-  /// Refresh history entries using devices currently connected by the system.
-  Future<BleDevice?> loadConnectedDevices() async {
-    try {
-      final devices = FlutterBluePlus.connectedDevices;
-
-      for (final item in historyDevices) {
-        item.isFound = false;
-      }
-
-      BleDevice? firstConnected;
-
-      for (final device in devices) {
-        final id = device.remoteId.str;
-        final index = historyDevices.indexWhere((item) => item.id == id);
-
-        _devicesById[id] = device;
-
-        final oldDevice = index >= 0 ? historyDevices[index] : null;
-
-        final connectedDevice = BleDevice(
-          id: id,
-          name: device.platformName.isNotEmpty
-              ? device.platformName
-              : oldDevice?.name ?? '',
-          rssi: oldDevice?.rssi ?? 0,
-          isHistory: true,
-          isLast: true,
-          isFound: true,
-        );
-
-        firstConnected ??= connectedDevice;
-
-        historyDevices.removeWhere((item) => item.id == id);
-
-        for (final item in historyDevices) {
-          item.isLast = false;
-        }
-
-        historyDevices.insert(0, connectedDevice);
-      }
-
-      await saveHistory();
-
-      return firstConnected;
-    } catch (error) {
-      debugPrint('Failed to load connected devices: $error');
-      return null;
-    }
-  }
-
   /// Start scanning for nearby BLE devices.
   Future<void> startScan({
     required ValueChanged<List<BleDevice>> onResults,
