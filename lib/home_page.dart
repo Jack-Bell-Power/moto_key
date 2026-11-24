@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 
 //For the page part.
@@ -5,6 +7,7 @@ import 'more_settings_page.dart';
 import 'usage_guide_page.dart';
 //For the ui part.
 import './models/ble_device.dart';
+import './models/ble_connection_status.dart';
 import './widgets/device_tile.dart';
 import './widgets/section_title.dart';
 import './widgets/slide_action.dart';
@@ -35,9 +38,27 @@ class _HomePageState extends State<HomePage> {
 
   final BleManager _bleManager = BleManager();
 
+  StreamSubscription<BleConnectionStatus>? _connectionStatusSubscription;
+
+  BleConnectionStatus _connectionStatus = BleConnectionStatus.disconnected;
+
   List<BleDevice> get _historyDevices => _bleManager.historyDevices;
 
   bool get _isHistoryLoaded => _bleManager.isHistoryLoaded;
+
+  void _listenConnectionStatus() {
+    _connectionStatus = _bleManager.connectionStatus;
+
+    _connectionStatusSubscription = _bleManager.connectionStatusStream.listen((
+      status,
+    ) {
+      if (!mounted) return;
+
+      setState(() {
+        _connectionStatus = status;
+      });
+    });
+  }
 
   Future<void> _showDeviceDialog() async {
     if (!_isHistoryLoaded) {
@@ -372,7 +393,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+
     _bleManager.loadHistory();
+    _listenConnectionStatus();
   }
 
   @override
@@ -420,13 +443,18 @@ class _HomePageState extends State<HomePage> {
                       Icon(
                         CupertinoIcons.bluetooth,
                         size: 18,
-                        color: connectedDeviceId != null
+                        color:
+                            _connectionStatus == BleConnectionStatus.connected
                             ? const Color(0xFF4F9EFF)
                             : CupertinoColors.systemGrey,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        connectedDeviceId != null ? '蓝牙已连接' : '蓝牙未连接',
+                        switch (_connectionStatus) {
+                          BleConnectionStatus.connected => '蓝牙已连接',
+                          BleConnectionStatus.reconnecting => '等待连接结果',
+                          BleConnectionStatus.disconnected => '蓝牙未连接',
+                        },
                         style: const TextStyle(
                           fontSize: 14,
                           color: CupertinoColors.systemGrey,
@@ -642,5 +670,13 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _connectionStatusSubscription?.cancel();
+    _bleManager.dispose();
+
+    super.dispose();
   }
 }

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../models/ble_device.dart';
+import '../models/ble_connection_status.dart';
 
 class BleManager {
   static const String _historyStorageKey = 'ble_device_history';
@@ -49,9 +50,26 @@ class BleManager {
   final StreamController<List<int>> _receivedDataController =
       StreamController<List<int>>.broadcast();
 
-  /// Listen to connection state changes.
-  Stream<BluetoothConnectionState> get connectionStateStream =>
-      _connectionStateController.stream;
+  final StreamController<BleConnectionStatus> _statusController =
+      StreamController<BleConnectionStatus>.broadcast();
+
+  BleConnectionStatus _connectionStatus = BleConnectionStatus.disconnected;
+
+  /// Listen to BLE connection status.
+  Stream<BleConnectionStatus> get connectionStatusStream =>
+      _statusController.stream;
+
+  /// Get the current BLE connection status.
+  BleConnectionStatus get connectionStatus => _connectionStatus;
+
+  /// Update the BLE connection status.
+  void _updateConnectionStatus(BleConnectionStatus status) {
+    _connectionStatus = status;
+
+    if (!_statusController.isClosed) {
+      _statusController.add(status);
+    }
+  }
 
   /// Listen to received BLE data.
   Stream<List<int>> get receivedDataStream => _receivedDataController.stream;
@@ -89,6 +107,8 @@ class BleManager {
   bool _isDisposed = false;
 
   int _reconnectAttempts = 0;
+
+  int _connectionGeneration = 0;
 
   /// Initialize the Bluetooth adapter.
   Future<void> initializeBluetooth() async {
@@ -292,6 +312,10 @@ class BleManager {
 
   /// Connect to a BLE device and initialize communication.
   Future<int> connectDevice(BleDevice device) async {
+    if (_isDisposed) {
+      throw StateError('BLE manager has been disposed.');
+    }
+
     if (_isConnecting) {
       throw StateError('A BLE connection is already in progress.');
     }
@@ -302,9 +326,14 @@ class BleManager {
       throw StateError('The Bluetooth device is unavailable.');
     }
 
-    await stopScan();
+    // Invalidate previous connection tasks.
+    _connectionGeneration++;
+    final generation = _connectionGeneration;
 
-    // Disable reconnection for the previous device.
+    // Lock immediately to prevent concurrent connection attempts.
+    _isConnecting = true;
+
+    // Disable automatic reconnection for the previous device.
     _autoReconnectEnabled = false;
     _hasConnectedSuccessfully = false;
 
@@ -313,42 +342,72 @@ class BleManager {
 
     _reconnectAttempts = 0;
 
-    final previousDevice = _connectedDevice;
-    if (previousDevice != null &&
-        previousDevice.remoteId != bluetoothDevice.remoteId &&
-        previousDevice.isConnected) {
-      await previousDevice.disconnect();
+    bool connectionStarted = false;
+
+    // Check whether this connection task is still valid.
+    void checkConnectionTask() {
+      if (_isDisposed ||
+          generation != _connectionGeneration ||
+          !_autoReconnectEnabled ||
+          !identical(_connectedDevice, bluetoothDevice)) {
+        throw StateError('BLE connection attempt was cancelled.');
+      }
     }
 
-    // Clean up previous connection listeners.
-    await _notifySubscription?.cancel();
-    await _connectionStateSubscription?.cancel();
-
-    _writeCharacteristic = null;
-    _notifyCharacteristic = null;
-
-    _connectedDevice = bluetoothDevice;
-
-    _autoReconnectEnabled = true;
-    _isConnecting = true;
-
-    // Listen for connection state changes.
-    _connectionStateSubscription = bluetoothDevice.connectionState.listen(
-      _handleConnectionState,
-      onError: (Object error) {
-        debugPrint('BLE connection state error: $error');
-      },
-    );
-
     try {
+      await stopScan();
+
+      if (_isDisposed || generation != _connectionGeneration) {
+        throw StateError('BLE connection attempt was cancelled.');
+      }
+
+      final previousDevice = _connectedDevice;
+
+      if (previousDevice != null &&
+          previousDevice.remoteId != bluetoothDevice.remoteId &&
+          previousDevice.isConnected) {
+        await previousDevice.disconnect();
+      }
+
+      if (_isDisposed || generation != _connectionGeneration) {
+        throw StateError('BLE connection attempt was cancelled.');
+      }
+
+      // Clean up previous connection listeners.
+      await _notifySubscription?.cancel();
+      await _connectionStateSubscription?.cancel();
+
+      _notifySubscription = null;
+      _connectionStateSubscription = null;
+
+      _writeCharacteristic = null;
+      _notifyCharacteristic = null;
+
+      _connectedDevice = bluetoothDevice;
+      connectionStarted = true;
+
+      _autoReconnectEnabled = true;
+
+      // Listen for connection state changes.
+      _connectionStateSubscription = bluetoothDevice.connectionState.listen(
+        _handleConnectionState,
+        onError: (Object error) {
+          debugPrint('BLE connection state error: $error');
+        },
+      );
+
       // Establish the BLE connection.
       await bluetoothDevice.connect(
         license: License.nonprofit,
         timeout: const Duration(seconds: 15),
       );
 
+      checkConnectionTask();
+
       // Discover services.
       final services = await bluetoothDevice.discoverServices();
+
+      checkConnectionTask();
 
       BluetoothService? targetService;
 
@@ -397,7 +456,9 @@ class BleManager {
       // Subscribe before enabling notifications.
       _notifySubscription = _notifyCharacteristic!.onValueReceived.listen(
         (value) {
-          _receivedDataController.add(List<int>.unmodifiable(value));
+          if (!_receivedDataController.isClosed) {
+            _receivedDataController.add(List<int>.unmodifiable(value));
+          }
         },
         onError: (Object error) {
           debugPrint('BLE notification error: $error');
@@ -407,34 +468,46 @@ class BleManager {
       // Enable notifications.
       await _notifyCharacteristic!.setNotifyValue(true);
 
+      checkConnectionTask();
+
       _hasConnectedSuccessfully = true;
       _reconnectAttempts = 0;
+
+      _updateConnectionStatus(BleConnectionStatus.connected);
 
       debugPrint('BLE communication initialized.');
 
       return services.length;
     } catch (error) {
-      _autoReconnectEnabled = false;
-      _hasConnectedSuccessfully = false;
+      if (generation == _connectionGeneration) {
+        _autoReconnectEnabled = false;
+        _hasConnectedSuccessfully = false;
+
+        _updateConnectionStatus(BleConnectionStatus.disconnected);
+      }
 
       debugPrint('BLE connection initialization failed: $error');
 
-      await _notifySubscription?.cancel();
-      _notifySubscription = null;
+      if (connectionStarted) {
+        await _notifySubscription?.cancel();
+        await _connectionStateSubscription?.cancel();
 
-      _writeCharacteristic = null;
-      _notifyCharacteristic = null;
+        _notifySubscription = null;
+        _connectionStateSubscription = null;
 
-      await _connectionStateSubscription?.cancel();
-      _connectionStateSubscription = null;
+        _writeCharacteristic = null;
+        _notifyCharacteristic = null;
 
-      _connectedDevice = null;
+        if (identical(_connectedDevice, bluetoothDevice)) {
+          _connectedDevice = null;
+        }
 
-      if (bluetoothDevice.isConnected) {
-        try {
-          await bluetoothDevice.disconnect();
-        } catch (disconnectError) {
-          debugPrint('BLE cleanup failed: $disconnectError');
+        if (bluetoothDevice.isConnected) {
+          try {
+            await bluetoothDevice.disconnect();
+          } catch (disconnectError) {
+            debugPrint('BLE cleanup failed: $disconnectError');
+          }
         }
       }
 
@@ -500,7 +573,9 @@ class BleManager {
 
   /// Handle BLE connection state changes.
   void _handleConnectionState(BluetoothConnectionState state) {
-    _connectionStateController.add(state);
+    if (!_connectionStateController.isClosed) {
+      _connectionStateController.add(state);
+    }
 
     if (state == BluetoothConnectionState.disconnected) {
       _notifySubscription?.cancel();
@@ -509,19 +584,28 @@ class BleManager {
       _writeCharacteristic = null;
       _notifyCharacteristic = null;
 
-      if (_autoReconnectEnabled &&
-          _hasConnectedSuccessfully &&
-          !_isConnecting) {
-        _scheduleReconnect();
+      if (_autoReconnectEnabled && _hasConnectedSuccessfully && !_isDisposed) {
+        // Keep the reconnecting status during automatic reconnection.
+        _updateConnectionStatus(BleConnectionStatus.reconnecting);
+
+        if (!_isConnecting) {
+          _scheduleReconnect();
+        }
+      } else {
+        _updateConnectionStatus(BleConnectionStatus.disconnected);
       }
     }
   }
 
   /// Disconnect the currently selected device.
   Future<void> disconnectDevice() async {
+    // Invalidate any ongoing connection tasks.
+    _connectionGeneration++;
+
     _autoReconnectEnabled = false;
     _hasConnectedSuccessfully = false;
 
+    _updateConnectionStatus(BleConnectionStatus.disconnected);
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
 
@@ -561,6 +645,8 @@ class BleManager {
 
   /// Release BLE resources.
   Future<void> dispose() async {
+    _connectionGeneration++;
+
     _isDisposed = true;
     _autoReconnectEnabled = false;
 
@@ -588,6 +674,7 @@ class BleManager {
 
     await _connectionStateController.close();
     await _receivedDataController.close();
+    await _statusController.close();
   }
 
   /// Check whether a UUID contains the expected 16-bit UUID.
@@ -613,6 +700,9 @@ class BleManager {
 
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       _autoReconnectEnabled = false;
+
+      _updateConnectionStatus(BleConnectionStatus.disconnected);
+
       return;
     }
 
@@ -633,6 +723,7 @@ class BleManager {
   /// Attempt to reconnect to the previously connected device.
   Future<void> _attemptReconnect() async {
     final device = _connectedDevice;
+    final generation = _connectionGeneration;
 
     if (_isDisposed ||
         !_autoReconnectEnabled ||
@@ -644,10 +735,20 @@ class BleManager {
 
     _isConnecting = true;
 
+    _updateConnectionStatus(BleConnectionStatus.reconnecting);
+
     try {
       final adapterState = await FlutterBluePlus.adapterState
           .firstWhere((state) => state != BluetoothAdapterState.unknown)
           .timeout(const Duration(seconds: 5));
+
+      // Check whether this reconnection task is still valid.
+      if (_isDisposed ||
+          generation != _connectionGeneration ||
+          !_autoReconnectEnabled ||
+          !identical(_connectedDevice, device)) {
+        return;
+      }
 
       if (adapterState != BluetoothAdapterState.on) {
         throw StateError('Bluetooth is not turned on.');
@@ -655,26 +756,49 @@ class BleManager {
 
       await _initializeConnection(device);
 
-      _reconnectAttempts = 0;
-    } catch (_) {
-      await _notifySubscription?.cancel();
-      _notifySubscription = null;
-
-      _writeCharacteristic = null;
-      _notifyCharacteristic = null;
-
-      if (device.isConnected) {
-        try {
+      // Check again after connection initialization.
+      if (_isDisposed ||
+          generation != _connectionGeneration ||
+          !_autoReconnectEnabled ||
+          !identical(_connectedDevice, device)) {
+        if (device.isConnected) {
           await device.disconnect();
-        } catch (_) {
-          // Ignore disconnect errors during reconnection.
+        }
+        return;
+      }
+
+      _reconnectAttempts = 0;
+
+      _updateConnectionStatus(BleConnectionStatus.connected);
+    } catch (_) {
+      final isCurrentTask =
+          !_isDisposed &&
+          generation == _connectionGeneration &&
+          _autoReconnectEnabled &&
+          identical(_connectedDevice, device);
+
+      if (isCurrentTask) {
+        await _notifySubscription?.cancel();
+        _notifySubscription = null;
+
+        _writeCharacteristic = null;
+        _notifyCharacteristic = null;
+
+        if (device.isConnected) {
+          try {
+            await device.disconnect();
+          } catch (_) {
+            // Ignore disconnect errors during reconnection.
+          }
         }
       }
     } finally {
       _isConnecting = false;
     }
 
-    if (_autoReconnectEnabled &&
+    if (!_isDisposed &&
+        generation == _connectionGeneration &&
+        _autoReconnectEnabled &&
         identical(_connectedDevice, device) &&
         !device.isConnected) {
       _scheduleReconnect();
@@ -683,6 +807,9 @@ class BleManager {
 
   /// Connect to a device and initialize its BLE communication.
   Future<int> _initializeConnection(BluetoothDevice device) async {
+    _writeCharacteristic = null;
+    _notifyCharacteristic = null;
+
     await device.connect(
       license: License.nonprofit,
       timeout: const Duration(seconds: 15),
@@ -731,7 +858,9 @@ class BleManager {
     _notifySubscription = _notifyCharacteristic!.onValueReceived.listen((
       value,
     ) {
-      _receivedDataController.add(List<int>.unmodifiable(value));
+      if (!_receivedDataController.isClosed) {
+        _receivedDataController.add(List<int>.unmodifiable(value));
+      }
     });
 
     await _notifyCharacteristic!.setNotifyValue(true);
