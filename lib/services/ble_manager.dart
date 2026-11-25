@@ -97,7 +97,7 @@ class BleManager {
     Duration(seconds: 8),
   ];
 
-  static const int _maxReconnectAttempts = 12;
+  static const int _maxReconnectAttempts = 5;
 
   Timer? _reconnectTimer;
 
@@ -840,7 +840,7 @@ class BleManager {
 
         if (device.isConnected) {
           try {
-            await device.disconnect();
+            await device.disconnect().timeout(const Duration(seconds: 5));
           } catch (_) {
             // Ignore disconnect errors during reconnection.
           }
@@ -869,7 +869,9 @@ class BleManager {
       timeout: const Duration(seconds: 15),
     );
 
-    final services = await device.discoverServices();
+    final services = await device.discoverServices().timeout(
+      const Duration(seconds: 10),
+    );
 
     BluetoothService? targetService;
 
@@ -917,7 +919,9 @@ class BleManager {
       }
     });
 
-    await _notifyCharacteristic!.setNotifyValue(true);
+    await _notifyCharacteristic!
+        .setNotifyValue(true)
+        .timeout(const Duration(seconds: 10));
 
     return services.length;
   }
