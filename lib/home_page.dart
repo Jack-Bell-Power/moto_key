@@ -226,7 +226,10 @@ class _HomePageState extends State<HomePage> {
                       ..._historyDevices.map(
                         (device) => DeviceTile(
                           device: device,
-                          connected: connectedDeviceId == device.id,
+                          connected:
+                              _connectionStatus ==
+                                  BleConnectionStatus.connected &&
+                              _bleManager.connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
                           disabled: isConnecting,
                           onTap: () {
@@ -264,7 +267,10 @@ class _HomePageState extends State<HomePage> {
                       ...visibleNearby.map(
                         (device) => DeviceTile(
                           device: device,
-                          connected: connectedDeviceId == device.id,
+                          connected:
+                              _connectionStatus ==
+                                  BleConnectionStatus.connected &&
+                              _bleManager.connectedDeviceId == device.id,
                           connecting: connectingDeviceId == device.id,
                           disabled: isConnecting,
                           onTap: () => connectDevice(device),
