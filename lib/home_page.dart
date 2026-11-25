@@ -394,8 +394,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    _bleManager.loadHistory();
     _listenConnectionStatus();
+    _reconnectLastDevice();
   }
 
   @override
@@ -678,5 +678,18 @@ class _HomePageState extends State<HomePage> {
     _bleManager.dispose();
 
     super.dispose();
+  }
+
+  Future<void> _reconnectLastDevice() async {
+    final device = await _bleManager.reconnectLastDevice();
+
+    if (!mounted || device == null) {
+      return;
+    }
+
+    setState(() {
+      connectedDeviceId = device.id;
+      connectedDeviceName = device.name.isEmpty ? '未知设备' : device.name;
+    });
   }
 }

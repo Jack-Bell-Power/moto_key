@@ -128,6 +128,60 @@ class BleManager {
     }
   }
 
+  /// Reconnect to the last connected device when the app starts.
+  Future<BleDevice?> reconnectLastDevice() async {
+    if (_isDisposed || _isConnecting) {
+      return null;
+    }
+
+    await loadHistory();
+
+    if (_isDisposed) {
+      return null;
+    }
+
+    BleDevice? lastDevice;
+
+    for (final device in historyDevices) {
+      if (device.isLast) {
+        lastDevice = device;
+        break;
+      }
+    }
+
+    if (lastDevice == null) {
+      return null;
+    }
+
+    final bluetoothDevice = BluetoothDevice.fromId(lastDevice.id);
+
+    _connectionGeneration++;
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+
+    _reconnectAttempts = 0;
+
+    await _connectionStateSubscription?.cancel();
+
+    _connectedDevice = bluetoothDevice;
+    _devicesById[lastDevice.id] = bluetoothDevice;
+
+    _autoReconnectEnabled = true;
+    _hasConnectedSuccessfully = true;
+
+    _connectionStateSubscription = bluetoothDevice.connectionState.listen(
+      _handleConnectionState,
+      onError: (Object error) {},
+    );
+
+    _updateConnectionStatus(BleConnectionStatus.reconnecting);
+
+    unawaited(_attemptReconnect());
+
+    return lastDevice;
+  }
+
   /// Load previously connected devices from local storage.
   Future<void> loadHistory() {
     return _historyLoadFuture ??= _loadHistory();
